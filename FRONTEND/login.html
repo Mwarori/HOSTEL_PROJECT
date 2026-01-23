@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Smart Accommodation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e7f74 0%, #0d5f56 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #1e7f74;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #1e7f74;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #1e7f74 0%, #0d5f56 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(30, 127, 116, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .links {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .links p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .links a {
+            color: #1e7f74;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #1e7f74;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <a href="/" class="back-link">← Back to Home</a>
+
+        <div class="login-header">
+            <h1>🔐 Login</h1>
+            <p>Access your Smart Accommodation account</p>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" placeholder="Enter your email" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter your password" required>
+            </div>
+
+            <button type="submit" id="loginBtn">Login</button>
+        </form>
+
+        <div class="links">
+            <p>Don't have an account? <a href="/register.html">Register here</a></p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+
+        // Check if already logged in
+        window.addEventListener('load', () => {
+            if (localStorage.getItem('access_token')) {
+                const user = localStorage.getItem('user');
+                if (user) {
+                    const userData = JSON.parse(user);
+                    if (userData.role === 'student') {
+                        window.location.href = '/student-dash.html';
+                    } else if (userData.role === 'owner') {
+                        window.location.href = '/owner-dash.html';
+                    }
+                }
+            }
+        });
+
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+            const messageDiv = document.getElementById("message");
+            const loginBtn = document.getElementById("loginBtn");
+
+            if (!email || !password) {
+                showMessage("Please fill in all fields", "error");
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = "Logging in...";
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/login/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showMessage(data.error || "Login failed", "error");
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = "Login";
+                    return;
+                }
+
+                // Store token and user info
+                localStorage.setItem("access_token", data.access);
+                localStorage.setItem("refresh", data.refresh);
+                localStorage.setItem("user", JSON.stringify(data.user));
+
+                showMessage("Login successful! Redirecting...", "success");
+
+                // Redirect based on role
+                setTimeout(() => {
+                    if (data.user.role === 'student') {
+                        window.location.href = '/student-dash.html';
+                    } else if (data.user.role === 'owner') {
+                        window.location.href = '/owner-dash.html';
+                    } else {
+                        window.location.href = '/';
+                    }
+                }, 1000);
+
+            } catch (error) {
+                console.error("Error:", error);
+                showMessage("Network error. Please try again.", "error");
+                loginBtn.disabled = false;
+                loginBtn.textContent = "Login";
+            }
+        });
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById("message");
+            messageDiv.textContent = message;
+            messageDiv.className = `message ${type}`;
+        }
+    </script>
+</body>
+</html>

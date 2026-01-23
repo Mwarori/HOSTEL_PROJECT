@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Smart Accommodation</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',sans-serif; background:#f4f6fb; color:#333; }
+        header { background:#1e7f74; color:white; padding:20px 30px; display:flex; justify-content:space-between; align-items:center; }
+        .logout { background:#e74c3c; border:none; color:white; padding:8px 14px; border-radius:6px; cursor:pointer; }
+        .sidebar { display:flex; background:white; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
+        .sidebar button { flex:1; padding:15px; border:none; background:transparent; cursor:pointer; color:#666; font-size:14px; transition:.2s; border-bottom:3px solid transparent; }
+        .sidebar button.active { color:#1e7f74; border-bottom-color:#1e7f74; }
+        .container { padding:30px; }
+        .section { display:none; }
+        .section.active { display:block; }
+        .card { background:white; padding:20px; border-radius:10px; margin-bottom:20px; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:20px; }
+        .stat { background:white; padding:20px; border-radius:10px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.08); }
+        .stat h4 { color:#666; font-size:12px; margin-bottom:10px; }
+        .stat p { font-size:28px; font-weight:bold; color:#1e7f74; }
+        h2 { color:#1e7f74; margin-bottom:20px; }
+        .hostel-item { background:white; padding:15px; border-radius:8px; margin-bottom:15px; border-left:4px solid #1e7f74; }
+        .hostel-item h4 { color:#1e7f74; margin-bottom:8px; }
+        .hostel-item p { color:#666; font-size:14px; margin-bottom:8px; }
+        .btn { padding:8px 16px; background:#1e7f74; color:white; border:none; border-radius:6px; cursor:pointer; margin-right:8px; }
+        .btn-danger { background:#e74c3c; }
+        .btn:hover { opacity:0.9; }
+        .form-group { margin-bottom:15px; }
+        label { display:block; margin-bottom:5px; color:#666; font-size:14px; }
+        input, textarea, select { width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-family:inherit; }
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; }
+        .modal.active { display:flex; }
+        .modal-content { background:white; padding:30px; border-radius:10px; width:90%; max-width:500px; }
+        .close-modal { float:right; cursor:pointer; font-size:20px; color:#999; }
+        .payment-method { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:10px 0; }
+        .payment-option { padding:10px; border:2px solid #ddd; border-radius:6px; cursor:pointer; text-align:center; transition:.2s; }
+        .payment-option.selected { border-color:#1e7f74; background:#f0fffe; }
+        .rooms-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:15px; }
+        .room-card { background:white; padding:15px; border-radius:8px; text-align:center; border:1px solid #ddd; }
+        .room-card h4 { color:#1e7f74; margin-bottom:10px; }
+        .room-card .occupied { color:#e74c3c; font-size:12px; }
+        .room-card .available { color:#27ae60; font-size:12px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h2>👨‍🎓 Student Dashboard</h2>
+    <button class="logout" onclick="logout()">Logout</button>
+</header>
+
+<div class="sidebar">
+    <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+    <button class="tab-btn" onclick="switchTab('browse')">Browse Hostels</button>
+    <button class="tab-btn" onclick="switchTab('bookings')">My Bookings</button>
+    <button class="tab-btn" onclick="switchTab('payments')">Payments</button>
+    <button class="tab-btn" onclick="switchTab('complaints')">Complaints</button>
+</div>
+
+<div class="container">
+    <!-- OVERVIEW -->
+    <div id="overview" class="section active">
+        <h2>Welcome, <span id="userName">Guest</span>! 👋</h2>
+        <div class="grid">
+            <div class="stat">
+                <h4>Active Booking</h4>
+                <p id="activeBooking">-</p>
+            </div>
+            <div class="stat">
+                <h4>Total Paid</h4>
+                <p>₹<span id="totalPaid">0</span></p>
+            </div>
+            <div class="stat">
+                <h4>Pending Issues</h4>
+                <p id="pendingIssues">0</p>
+            </div>
+            <div class="stat">
+                <h4>Resolved Issues</h4>
+                <p id="resolvedIssues">0</p>
+            </div>
+        </div>
+        <div class="card" style="margin-top:30px;">
+            <h3>Recent Bookings</h3>
+            <div id="recentBookings" style="margin-top:15px;"></div>
+        </div>
+    </div>
+
+    <!-- BROWSE HOSTELS -->
+    <div id="browse" class="section">
+        <h2>Browse Available Hostels</h2>
+        <div id="hostelsList" class="grid"></div>
+    </div>
+
+    <!-- BOOKINGS -->
+    <div id="bookings" class="section">
+        <h2>My Bookings</h2>
+        <div id="myBookings"></div>
+    </div>
+
+    <!-- PAYMENTS -->
+    <div id="payments" class="section">
+        <h2>Payment Management</h2>
+        <div class="card">
+            <h3>Your Payments</h3>
+            <div id="paymentsList" style="margin-top:15px;"></div>
+        </div>
+    </div>
+
+    <!-- COMPLAINTS -->
+    <div id="complaints" class="section">
+        <h2>Submit Complaint</h2>
+        <div class="card">
+            <h3>Report an Issue</h3>
+            <div class="form-group">
+                <label>Hostel</label>
+                <select id="complaintHostel">
+                    <option value="">Select hostel...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="complaintTitle" placeholder="e.g., Water leak in bathroom">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="complaintDesc" placeholder="Describe the issue..." rows="4"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Priority</label>
+                <select id="complaintPriority">
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM" selected>Medium</option>
+                    <option value="HIGH">High</option>
+                </select>
+            </div>
+            <button class="btn" onclick="submitComplaint()">Submit Complaint</button>
+        </div>
+
+        <h3 style="margin-top:30px;">Your Issues</h3>
+        <div id="complaintsList" style="margin-top:15px;"></div>
+    </div>
+</div>
+
+<!-- PAYMENT MODAL -->
+<div id="paymentModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('paymentModal')">&times;</span>
+        <h3>Pay Fees</h3>
+        <form onsubmit="processPayment(event)">
+            <div class="form-group">
+                <label>Booking</label>
+                <select id="paymentBooking" required>
+                    <option value="">Select booking...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Amount (₹)</label>
+                <input type="number" id="paymentAmount" placeholder="Enter amount" required>
+            </div>
+            <div class="form-group">
+                <label>Payment Method</label>
+                <div class="payment-method">
+                    <div class="payment-option" onclick="selectPaymentMethod('MPESA')">📱 M-Pesa</div>
+                    <div class="payment-option" onclick="selectPaymentMethod('CARD')">💳 Card</div>
+                </div>
+                <input type="hidden" id="selectedPaymentMethod">
+            </div>
+            <div class="form-group">
+                <label>Transaction ID</label>
+                <input type="text" id="transactionId" placeholder="Enter transaction ID" required>
+            </div>
+            <button type="submit" class="btn">Confirm Payment</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const API_BASE = 'http://127.0.0.1:8000/api';
+    let authToken = null;
+    let currentUser = null;
+
+    // Initialize
+    window.onload = () => {
+        const token = localStorage.getItem('access_token');
+        const user = localStorage.getItem('user');
+        
+        if (!token || !user) {
+            window.location.href = '/login.html';
+            return;
+        }
+        
+        authToken = token;
+        currentUser = JSON.parse(user);
+        
+        if (currentUser.role !== 'student') {
+            window.location.href = '/owner-dash.html';
+            return;
+        }
+        
+        document.getElementById('userName').textContent = currentUser.first_name || currentUser.email;
+        loadDashboard();
+    };
+
+    async function apiCall(endpoint, method = 'GET', data = null) {
+        const options = {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }
+        };
+        if (data) options.body = JSON.stringify(data);
+        
+        const res = await fetch(`${API_BASE}${endpoint}`, options);
+        return res.json();
+    }
+
+    async function loadDashboard() {
+        const data = await apiCall('/dashboard/student/');
+        document.getElementById('activeBooking').textContent = data.active_booking ? 'Yes' : 'No';
+        document.getElementById('totalPaid').textContent = data.total_paid || 0;
+        document.getElementById('pendingIssues').textContent = data.pending_issues || 0;
+        document.getElementById('resolvedIssues').textContent = data.resolved_issues || 0;
+        
+        if (data.recent_bookings && data.recent_bookings.length > 0) {
+            document.getElementById('recentBookings').innerHTML = data.recent_bookings.map(b => `
+                <div class="hostel-item">
+                    <h4>${b.hostel.name}</h4>
+                    <p>Status: <strong>${b.status}</strong></p>
+                    <p>Booking Date: ${new Date(b.booking_date).toLocaleDateString()}</p>
+                </div>
+            `).join('');
+        }
+        
+        loadHostels();
+        loadMyBookings();
+        loadPayments();
+    }
+
+    async function loadHostels() {
+        const data = await apiCall('/hostels/', 'GET');
+        const html = data.hostels.map(h => {
+            const imagesHtml = h.images && h.images.length > 0 
+                ? `<div style="display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto;">
+                     ${h.images.map(img => `<img src="${img.image_url}" alt="${img.caption}" style="width: 120px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;">`).join('')}
+                   </div>`
+                : (h.image ? `<img src="${h.image}" alt="${h.name}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 6px; margin-bottom: 15px;">` : '');
+            
+            return `
+            <div class="card">
+                ${imagesHtml}
+                <h4>${h.name}</h4>
+                <p><strong>Location:</strong> ${h.location}</p>
+                <p><strong>Price:</strong> ₹${h.price_per_month}/month</p>
+                <p><strong>Available Rooms:</strong> ${h.available_rooms}/${h.total_rooms}</p>
+                <p>${h.description}</p>
+                ${h.amenities ? `<p><strong>Amenities:</strong> ${h.amenities}</p>` : ''}
+                <button class="btn" onclick="bookHostel('${h.id}')">Book Room</button>
+            </div>
+        `;
+        }).join('');
+        document.getElementById('hostelsList').innerHTML = html;
+    }
+
+    async function loadMyBookings() {
+        const data = await apiCall('/bookings/my/');
+        const html = data.bookings.map(b => `
+            <div class="hostel-item">
+                <h4>${b.hostel.name}</h4>
+                <p>Status: <strong>${b.status}</strong></p>
+                <p>Booking Date: ${new Date(b.booking_date).toLocaleDateString()}</p>
+                <button class="btn" onclick="openPaymentModal('${b.id}')">Pay Fees</button>
+            </div>
+        `).join('');
+        document.getElementById('myBookings').innerHTML = html || '<p>No bookings yet</p>';
+    }
+
+    async function loadPayments() {
+        const data = await apiCall('/payments/my/');
+        const html = data.payments.map(p => `
+            <div class="hostel-item">
+                <h4>${p.hostel} - ₹${p.amount}</h4>
+                <p>Status: <strong>${p.status}</strong></p>
+                <p>Method: ${p.method}</p>
+                <p>Date: ${new Date(p.created_at).toLocaleDateString()}</p>
+            </div>
+        `).join('');
+        document.getElementById('paymentsList').innerHTML = html || '<p>No payments yet</p>';
+    }
+
+    async function bookHostel(hostelId) {
+        const res = await apiCall('/bookings/book/', 'POST', {
+            hostel_id: hostelId,
+            semester_start: new Date().toISOString().split('T')[0],
+            semester_end: new Date(Date.now() + 180*24*60*60*1000).toISOString().split('T')[0]
+        });
+        
+        if (res.message) {
+            alert('Booking created! Waiting for owner approval.');
+            loadMyBookings();
+        } else {
+            alert(res.error || 'Booking failed');
+        }
+    }
+
+    function openPaymentModal(bookingId) {
+        const select = document.getElementById('paymentBooking');
+        select.value = bookingId;
+        document.getElementById('paymentModal').classList.add('active');
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+    }
+
+    function selectPaymentMethod(method) {
+        document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
+        event.target.classList.add('selected');
+        document.getElementById('selectedPaymentMethod').value = method;
+    }
+
+    async function processPayment(e) {
+        e.preventDefault();
+        const bookingId = document.getElementById('paymentBooking').value;
+        const amount = document.getElementById('paymentAmount').value;
+        const method = document.getElementById('selectedPaymentMethod').value;
+        const transactionId = document.getElementById('transactionId').value;
+        
+        const res = await apiCall('/payments/record/', 'POST', {
+            booking_id: bookingId,
+            amount: parseFloat(amount),
+            payment_method: method,
+            transaction_id: transactionId
+        });
+        
+        if (res.message) {
+            alert('Payment recorded successfully!');
+            closeModal('paymentModal');
+            loadPayments();
+        } else {
+            alert(res.error || 'Payment failed');
+        }
+    }
+
+    async function submitComplaint() {
+        const hostelId = document.getElementById('complaintHostel').value;
+        const title = document.getElementById('complaintTitle').value;
+        const desc = document.getElementById('complaintDesc').value;
+        const priority = document.getElementById('complaintPriority').value;
+        
+        if (!hostelId || !title || !desc) {
+            alert('Please fill all fields');
+            return;
+        }
+        
+        const res = await apiCall('/issues/report/', 'POST', {
+            hostel_id: hostelId,
+            title, description: desc, priority
+        });
+        
+        if (res.message) {
+            alert('Complaint submitted!');
+            document.getElementById('complaintTitle').value = '';
+            document.getElementById('complaintDesc').value = '';
+            loadComplaints();
+        }
+    }
+
+    async function loadComplaints() {
+        const bookings = await apiCall('/bookings/my/');
+        if (bookings.bookings.length > 0) {
+            const hostelId = bookings.bookings[0].hostel.id;
+            const data = await apiCall(`/issues/owner/${hostelId}/`);
+            const html = data.issues.map(i => `
+                <div class="hostel-item">
+                    <h4>${i.title} - <strong>${i.status}</strong></h4>
+                    <p>${i.description}</p>
+                    <p>Priority: ${i.priority} | Reported: ${new Date(i.created_at).toLocaleDateString()}</p>
+                </div>
+            `).join('');
+            document.getElementById('complaintsList').innerHTML = html;
+        }
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+        
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        if (tabName === 'complaints') loadComplaints();
+    }
+
+    function logout() {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('user');
+        window.location.href = '/login.html';
+    }
+</script>
+
+</body>
+</html>

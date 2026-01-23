@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hostel Manager - Create Hostel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+        }
+
+        .form-section h2 {
+            font-size: 16px;
+            color: #667eea;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="email"],
+        input[type="password"],
+        input[type="file"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        input[type="file"] {
+            padding: 5px;
+        }
+
+        input[type="file"]::file-selector-button {
+            background: #667eea;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        input[type="file"]::file-selector-button:hover {
+            background: #764ba2;
+        }
+
+        .image-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .preview-item {
+            position: relative;
+            background: #f0f0f0;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+        }
+
+        .caption-input {
+            background: #f9f9f9;
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 5px;
+        }
+
+        .caption-input label {
+            font-size: 12px;
+            margin-bottom: 3px;
+        }
+
+        .caption-input input {
+            font-size: 12px;
+            padding: 6px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-submit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-reset {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-reset:hover {
+            background: #e0e0e0;
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            font-size: 13px;
+            color: #004085;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏢 Create Hostel</h1>
+        <p class="subtitle">Add a new hostel with images and details</p>
+
+        <div class="info-box">
+            <strong>Note:</strong> Make sure you are logged in as an Owner. You can upload multiple images at once.
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <form id="hostelForm" enctype="multipart/form-data">
+            <!-- Hostel Details -->
+            <div class="form-section">
+                <h2>📝 Hostel Details</h2>
+
+                <div class="form-group">
+                    <label for="name">Hostel Name *</label>
+                    <input type="text" id="name" name="name" placeholder="e.g., Luxury Student Hostel" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="location">Location *</label>
+                    <input type="text" id="location" name="location" placeholder="e.g., Downtown, Main Street" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="totalRooms">Total Rooms *</label>
+                    <input type="number" id="totalRooms" name="total_rooms" placeholder="e.g., 20" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="pricePerMonth">Price Per Month (Ksh) *</label>
+                    <input type="number" id="pricePerMonth" name="price_per_month" placeholder="e.g., 5000" min="0" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" placeholder="Describe your hostel..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="amenities">Amenities</label>
+                    <input type="text" id="amenities" name="amenities" placeholder="e.g., WiFi, Kitchen, Gym, 24/7 Security">
+                </div>
+            </div>
+
+            <!-- Image Upload -->
+            <div class="form-section">
+                <h2>📸 Upload Images</h2>
+
+                <div class="form-group">
+                    <label for="images">Select Multiple Images *</label>
+                    <input type="file" id="images" name="images" multiple accept="image/*" required onchange="handleImageSelect(event)">
+                </div>
+
+                <div id="imagePreview" class="image-preview"></div>
+                <div id="captionsArea"></div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="btn-submit">💾 Create Hostel</button>
+                <button type="reset" class="btn-reset">↻ Clear Form</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+        let authToken = localStorage.getItem('authToken');
+
+        // Check if user is logged in
+        if (!authToken) {
+            alert('⚠️ You need to login first as an Owner!\n\nRedirecting to login...');
+            window.location.href = 'login.html';
+        }
+
+        function showMessage(message, type = 'success') {
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = message;
+            msgDiv.className = `message ${type}`;
+            setTimeout(() => {
+                msgDiv.className = 'message';
+            }, 5000);
+        }
+
+        function handleImageSelect(event) {
+            const files = event.target.files;
+            const preview = document.getElementById('imagePreview');
+            const captionsArea = document.getElementById('captionsArea');
+            
+            preview.innerHTML = '';
+            captionsArea.innerHTML = '';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    // Image preview
+                    const previewItem = document.createElement('div');
+                    previewItem.className = 'preview-item';
+                    previewItem.innerHTML = `<img src="${e.target.result}" alt="Image ${i + 1}">`;
+                    preview.appendChild(previewItem);
+                };
+
+                reader.readAsDataURL(file);
+
+                // Caption input
+                const captionDiv = document.createElement('div');
+                captionDiv.className = 'caption-input';
+                captionDiv.innerHTML = `
+                    <label>Caption for Image ${i + 1}</label>
+                    <input type="text" name="caption_${i}" placeholder="e.g., Main Entrance, Bedroom...">
+                `;
+                captionsArea.appendChild(captionDiv);
+            }
+        }
+
+        document.getElementById('hostelForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.querySelector('.btn-submit');
+            const originalText = submitBtn.textContent;
+            
+            try {
+                // Show loading state
+                submitBtn.innerHTML = '<span class="spinner"></span>Creating...';
+                submitBtn.disabled = true;
+
+                const formData = new FormData(this);
+
+                const response = await fetch(`${API_BASE}/hostels/add/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(`✅ Hostel "${data.name}" created successfully with ${data.images.length} images!`, 'success');
+                    document.getElementById('hostelForm').reset();
+                    document.getElementById('imagePreview').innerHTML = '';
+                    document.getElementById('captionsArea').innerHTML = '';
+                    
+                    // Redirect after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = 'owner-dashboard.html';
+                    }, 2000);
+                } else {
+                    showMessage(`❌ Error: ${data.error || 'Failed to create hostel'}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Reset message when user starts typing
+        document.querySelectorAll('input, textarea').forEach(field => {
+            field.addEventListener('focus', () => {
+                document.getElementById('message').className = 'message';
+            });
+        });
+    </script>
+</body>
+</html>

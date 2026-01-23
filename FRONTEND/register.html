@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Smart Accommodation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .register-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .register-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .register-header h1 {
+            color: #1e7f74;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .register-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #1e7f74;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: linear-gradient(135deg, #1e7f74 0%, #0d5f56 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(30, 127, 116, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .footer-text {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .footer-text a {
+            color: #1e7f74;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .footer-text a:hover {
+            text-decoration: underline;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #1e7f74;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .role-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <a href="index.html" class="back-link">← Back to Home</a>
+
+        <div class="register-header">
+            <h1>📝 Create Account</h1>
+            <p>Join Smart Accommodation today</p>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" placeholder="Enter your full name" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" placeholder="Enter your email" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter a strong password" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password2">Confirm Password</label>
+                <input type="password" id="password2" placeholder="Confirm your password" required>
+            </div>
+
+            <div class="form-group">
+                <label for="role">Account Type</label>
+                <select id="role" required>
+                    <option value="">Select your role</option>
+                    <option value="student">Student (Looking for accommodation)</option>
+                    <option value="owner">Hostel Owner (Managing properties)</option>
+                </select>
+                <div class="role-info">
+                    Choose "Student" if you're looking for a room, or "Owner" if you manage hostels
+                </div>
+            </div>
+
+            <button type="submit" id="registerBtn">Create Account</button>
+        </form>
+
+        <div class="footer-text">
+            Already have an account? <a href="/login.html">Login here</a>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+
+        document.getElementById("registerForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const name = document.getElementById("name").value.trim();
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+            const password2 = document.getElementById("password2").value;
+            const role = document.getElementById("role").value;
+            const registerBtn = document.getElementById("registerBtn");
+
+            // Validations
+            if (!name || !email || !password || !password2 || !role) {
+                showMessage("Please fill in all fields", "error");
+                return;
+            }
+
+            if (password !== password2) {
+                showMessage("Passwords do not match", "error");
+                return;
+            }
+
+            if (password.length < 6) {
+                showMessage("Password must be at least 6 characters", "error");
+                return;
+            }
+
+            if (!["student", "owner"].includes(role)) {
+                showMessage("Invalid role selection", "error");
+                return;
+            }
+
+            registerBtn.disabled = true;
+            registerBtn.textContent = "Creating account...";
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/register/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, email, password, role })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showMessage(data.error || "Registration failed", "error");
+                    registerBtn.disabled = false;
+                    registerBtn.textContent = "Create Account";
+                    return;
+                }
+
+                showMessage("Account created successfully! Redirecting to login...", "success");
+
+                setTimeout(() => {
+                    window.location.href = '/login.html';
+                }, 1500);
+
+            } catch (error) {
+                console.error("Error:", error);
+                showMessage("Network error. Please try again.", "error");
+                registerBtn.disabled = false;
+                registerBtn.textContent = "Create Account";
+            }
+        });
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById("message");
+            messageDiv.textContent = message;
+            messageDiv.className = `message ${type}`;
+        }
+
+        // Check if already logged in
+        window.addEventListener('load', () => {
+            if (localStorage.getItem('access_token')) {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                if (user.role === 'student') {
+                    window.location.href = '/student-dash.html';
+                } else if (user.role === 'owner') {
+                    window.location.href = '/owner-dash.html';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner Dashboard - Smart Accommodation</title>
+
+    <style>
+/* ===== MODERNIZED AND WORKING CSS ===== */
+body{margin:0;font-family:Segoe UI;background:#f4f6fb}
+header{background:#1e7f74;color:white;padding:20px;display:flex;justify-content:space-between}
+.logout{background:#e74c3c;border:none;color:white;padding:10px 16px;border-radius:8px;cursor:pointer}
+.container{padding:30px}
+.card{background:white;padding:25px;border-radius:16px;margin-bottom:30px;max-width:600px}
+input,textarea{width:100%;padding:12px;margin-bottom:12px;border-radius:8px;border:1px solid #ccc}
+.save{background:#1e7f74;color:white;border:none;padding:14px;border-radius:10px;width:100%;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px}
+.hostel{background:white;border-radius:14px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.05)}
+.hostel img{width:100%;height:200px;object-fit:cover;background:#e0e0e0;display:block}
+.hostel div{padding:15px}
+.actions button{margin-top:8px;width:100%;padding:8px;border:none;border-radius:6px;cursor:pointer}
+.edit{background:#3498db;color:white}
+.delete{background:#e74c3c;color:white}
+.bookings{font-size:13px;color:#555;margin-top:10px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:20px}
+.stat{background:white;padding:20px;border-radius:12px;text-align:center;box-shadow:0 4px 15px rgba(0,0,0,0.05)}
+.stat h4{color:#777;font-size:13px;font-weight:600;text-transform:uppercase;margin:0}
+.stat p{font-size:28px;font-weight:bold;color:#1e7f74;margin:10px 0 0}
+h3{color:#1e7f74;border-bottom:2px solid #1e7f74;padding-bottom:10px;margin:20px 0}
+    </style>
+</head>
+
+<body>
+
+<header>
+  <h2>Owner Dashboard</h2>
+  <button class="logout" onclick="logout()">Logout</button>
+</header>
+
+<div class="container">
+
+<!-- STATS -->
+<div class="stats" style="margin-bottom:30px;">
+    <div class="stat">
+        <h4>Total Hostels</h4>
+        <p id="totalHostels">0</p>
+    </div>
+    <div class="stat">
+        <h4>Booking Requests</h4>
+        <p id="pendingBookingRequests">0</p>
+    </div>
+    <div class="stat">
+        <h4>Allocated Students</h4>
+        <p id="allocatedStudents">0</p>
+    </div>
+    <div class="stat">
+        <h4>Total Revenue</h4>
+        <p id="totalRevenue">KSh 0</p>
+    </div>
+</div>
+
+<!-- ADD HOSTEL -->
+<div class="card">
+  <h3>Add Hostel</h3>
+  <input id="hostelName" placeholder="Hostel Name">
+  <input id="hostelLocation" placeholder="Location">
+  <input id="hostelRooms" type="number" placeholder="Rooms">
+  <input id="hostelPrice" type="number" placeholder="Price">
+  <input id="hostelImage" type="file">
+  <button class="save" onclick="addHostel()">Save Hostel</button>
+</div>
+
+<h3>My Hostels</h3>
+<div id="hostels" class="grid"></div>
+
+<h3>Student Bookings</h3>
+<div id="bookings"></div>
+
+<h3>🛠 Maintenance Issues</h3>
+<div id="issues"></div>
+
+<h3>📢 Send Notice to Students</h3>
+<div class="card">
+  <textarea id="noticeText" placeholder="Write notice for allocated students..."></textarea>
+  <button class="save" onclick="sendNotice()">Send Notice</button>
+</div>
+
+</div>
+
+<script src="api-client.js"></script>
+<script>
+/* ================= AUTH ================= */
+initAuth();
+
+if (!authToken || currentUser.role !== "owner") {
+  alert("Session expired or unauthorized");
+  window.location.href = "login.html";
+}
+
+function logout(){
+  logoutUser();
+  window.location.href = "login.html";
+}
+
+/* ================= DOM ================= */
+const hostelNameInput = document.getElementById("hostelName");
+const hostelLocationInput = document.getElementById("hostelLocation");
+const hostelRoomsInput = document.getElementById("hostelRooms");
+const hostelPriceInput = document.getElementById("hostelPrice");
+const hostelImageInput = document.getElementById("hostelImage");
+const hostelsDiv = document.getElementById("hostels");
+const bookingsDiv = document.getElementById("bookings");
+const issuesDiv = document.getElementById("issues");
+
+/* ================= STATUS ================= */
+function statusLabel(s){
+  return {
+    PENDING: "⏳ Pending Approval",
+    AWAITING_ALLOCATION: "Awaiting Allocation",
+    ALLOCATED_PENDING_ACCEPTANCE: "Awaiting Student Acceptance",
+    FINAL_ALLOCATED: "✅ Fully Allocated",
+    CANCELLED: "❌ Cancelled"
+  }[s] || s;
+}
+
+function formatCurrency(amount) {
+  return 'KSh ' + parseFloat(amount).toLocaleString('en-KE', { minimumFractionDigits: 0 });
+}
+
+/* ================= DASHBOARD STATS ================= */
+async function loadDashboard() {
+  try {
+    const data = await getOwnerDashboard();
+    document.getElementById('totalHostels').textContent = data.total_hostels || 0;
+    document.getElementById('pendingBookingRequests').textContent = data.pending_booking_requests || 0;
+    document.getElementById('allocatedStudents').textContent = data.total_students || 0;
+    document.getElementById('totalRevenue').textContent = formatCurrency(data.total_revenue || 0);
+  } catch (error) {
+    console.error('Error loading dashboard:', error);
+  }
+}
+
+/* ================= ADD HOSTEL ================= */
+async function addHostel(){
+  const fd = new FormData();
+  fd.append("name", hostelNameInput.value);
+  fd.append("location", hostelLocationInput.value);
+  fd.append("total_rooms", hostelRoomsInput.value);
+  fd.append("price_per_month", hostelPriceInput.value);
+  if (hostelImageInput.files[0]) fd.append("images", hostelImageInput.files[0]);
+
+  const res = await fetch("http://127.0.0.1:8000/api/hostels/add/", {
+    method:"POST",
+    headers:{Authorization:"Bearer "+authToken},
+    body:fd
+  });
+
+  if(res.ok){
+    hostelNameInput.value = hostelLocationInput.value = hostelRoomsInput.value = hostelPriceInput.value = "";
+    hostelImageInput.value = "";
+    alert("✅ Hostel added successfully!");
+    loadHostels();
+    loadDashboard();
+  } else {
+    alert("❌ Failed to add hostel");
+  }
+}
+
+/* ================= HOSTELS ================= */
+async function loadHostels(){
+  try {
+    const data = await getMyHostels();
+    const hostels = data.hostels || [];
+
+    hostelsDiv.innerHTML = hostels.map(h=>`
+      <div class="hostel">
+        <img 
+          src="${h.image || 'https://via.placeholder.com/400x250?text=No+Image'}" 
+          alt="${h.name}"
+          onerror="this.src='https://via.placeholder.com/400x250?text=Hostel+Image'"
+          loading="lazy"
+        >
+        <div>
+          <b>${h.name}</b>
+          <p>📍 ${h.location}</p>
+          <p style="margin:8px 0;"><b>Rooms:</b> ${h.total_rooms} (${h.available_rooms} available)</p>
+          <p style="margin:8px 0;"><b>Price:</b> ${formatCurrency(h.price_per_month)}/month</p>
+          ${h.amenities ? `<p style="font-size:12px;color:#666;">${h.amenities}</p>` : ''}
+        </div>
+      </div>
+    `).join("");
+  } catch(e) {
+    console.error('Error:', e);
+  }
+}
+
+/* ================= BOOKINGS ================= */
+async function loadBookings(){
+  try {
+    const hostelsRes = await getMyHostels();
+    const hostels = hostelsRes.hostels || [];
+    
+    let allBookings = [];
+    for(let h of hostels){
+      const bookingsRes = await getOwnerBookings(h.id);
+      const bookings = bookingsRes.bookings || [];
+      allBookings = allBookings.concat(bookings);
+    }
+
+    bookingsDiv.innerHTML = allBookings.length ? allBookings.map(b=>`
+      <div class="card bookings">
+        <b>${b.hostel?.name || 'Unknown'}</b><br>
+        Student: <strong>${b.user?.email || 'Unknown'}</strong><br>
+        Status: <strong>${statusLabel(b.status)}</strong><br>
+        <small>Booked: ${new Date(b.booking_date).toLocaleDateString()}</small><br><br>
+        ${b.status==="PENDING" ? `<button class="edit" onclick="allocate('${b.id}', '${b.hostel.id}')">Allocate Room</button>` : ""}
+        ${b.status==="PENDING" ? `<button class="delete" onclick="rejectBookingFunc('${b.id}')">Reject</button>` : ""}
+      </div>
+    `).join("") : "<div style='padding:20px;text-align:center;color:#999;'>No bookings</div>";
+  } catch(e) {
+    console.error('Error:', e);
+  }
+}
+
+/* ================= ALLOCATE ================= */
+async function allocate(id, hostelId){
+  const roomId = prompt("Enter room ID to allocate:");
+  if(!roomId) return;
+  
+  const res = await approveBooking(id, {room_id:roomId});
+  
+  if(res && res.booking){
+    alert("✅ Room allocated successfully!");
+    loadBookings();
+    loadDashboard();
+  } else {
+    alert("❌ Failed to allocate room");
+  }
+}
+
+async function rejectBookingFunc(id) {
+  const reason = prompt("Reason for rejection:");
+  if (!reason) return;
+  
+  const res = await rejectBooking(id, {reason: reason});
+  if (res && res.booking) {
+    alert("✅ Booking rejected");
+    loadBookings();
+    loadDashboard();
+  } else {
+    alert("❌ Failed to reject booking");
+  }
+}
+
+/* ================= MAINTENANCE ================= */
+async function loadIssues(){
+  try {
+    const hostelsRes = await getMyHostels();
+    const hostels = hostelsRes.hostels || [];
+    
+    let allIssues = [];
+    for(let h of hostels){
+      const issuesRes = await getOwnerIssues(h.id);
+      const issues = issuesRes.issues || issuesRes;
+      if (Array.isArray(issues)) {
+        allIssues = allIssues.concat(issues);
+      }
+    }
+
+    issuesDiv.innerHTML = allIssues.length ? allIssues.map(i=>`
+      <div class="card bookings">
+        <b>${i.hostel?.name || 'Unknown'}</b><br>
+        Student: <strong>${i.user?.email || 'Unknown'}</strong><br>
+        <strong>${i.title}</strong>: ${i.description}<br>
+        Status: ${i.status} | Priority: <strong>${i.priority}</strong><br><br>
+        ${i.status==="OPEN" || i.status==="IN_PROGRESS" ? `<button class="edit" onclick="resolveIssueFunc('${i.id}')">Mark Resolved</button>` : ""}
+      </div>
+    `).join("") : "<div style='padding:20px;text-align:center;color:#999;'>No maintenance issues</div>";
+  } catch(e) {
+    console.error('Error:', e);
+  }
+}
+
+async function resolveIssueFunc(id){
+  const res = await resolveIssue(id, {resolution_notes:"Resolved by owner"});
+  if(res && res.issue){
+    alert("✅ Issue marked as resolved!");
+    loadIssues();
+  } else {
+    alert("❌ Failed to resolve issue");
+  }
+}
+
+/* ================= NOTICES ================= */
+async function sendNotice(){
+  const msg = document.getElementById("noticeText").value.trim();
+  if(!msg) return alert("Write a notice");
+
+  const hostelsRes = await getMyHostels();
+  const hostels = hostelsRes.hostels || [];
+  
+  if(!hostels || hostels.length === 0) return alert("You need to create a hostel first");
+
+  const hostelId = hostels[0].id;
+
+  const res = await sendNotice({
+    hostel_id:hostelId, 
+    title:"Important Notice", 
+    message:msg
+  });
+
+  if(res && res.notice){
+    document.getElementById("noticeText").value="";
+    alert("✅ Notice sent to students");
+  } else {
+    alert("❌ Failed to send notice");
+  }
+}
+
+/* ================= INIT ================= */
+window.addEventListener('load', async () => {
+  if (!authToken || currentUser.role !== "owner") {
+    alert("Session expired or unauthorized");
+    window.location.href = "login.html";
+    return;
+  }
+  
+  // Load all data sequentially to ensure proper display
+  try {
+    await loadDashboard();
+    await loadHostels();
+    await loadBookings();
+    await loadIssues();
+  } catch (error) {
+    console.error('Error initializing dashboard:', error);
+  }
+});
+</script>
+
+</body>
+</html>

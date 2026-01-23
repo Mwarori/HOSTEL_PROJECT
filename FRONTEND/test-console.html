@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test Console</title>
+    <style>
+        body { font-family: Arial; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .test-section h3 { margin-top: 0; color: #333; }
+        input, textarea, select { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
+        button { background: #1e7f74; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px 0; }
+        button:hover { background: #16635f; }
+        .output { background: #f9f9f9; padding: 10px; border-left: 3px solid #1e7f74; margin: 10px 0; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; }
+        .success { color: green; }
+        .error { color: red; }
+        .loading { color: blue; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>API Test Console</h1>
+    <p>Use this to test all API endpoints and verify connectivity</p>
+
+    <!-- Auth Tests -->
+    <div class="test-section">
+        <h3>1. Authentication Tests</h3>
+        
+        <h4>Register</h4>
+        <input id="regEmail" placeholder="Email" value="test@example.com">
+        <input id="regPassword" placeholder="Password" value="password123">
+        <input id="regName" placeholder="Name" value="Test User">
+        <select id="regRole">
+            <option value="student">Student</option>
+            <option value="owner">Owner</option>
+        </select>
+        <button onclick="testRegister()">Register</button>
+        
+        <h4>Login</h4>
+        <input id="loginEmail" placeholder="Email" value="test@example.com">
+        <input id="loginPassword" placeholder="Password" value="password123">
+        <button onclick="testLogin()">Login</button>
+        
+        <div id="authOutput" class="output"></div>
+    </div>
+
+    <!-- Hostel Tests -->
+    <div class="test-section">
+        <h3>2. Hostel Tests</h3>
+        <button onclick="testGetAllHostels()">Get All Hostels</button>
+        <button onclick="testGetMyHostels()">Get My Hostels (Owner)</button>
+        
+        <h4>Add Hostel</h4>
+        <input id="hostelName" placeholder="Hostel Name" value="Test Hostel">
+        <input id="hostelLocation" placeholder="Location" value="Test Location">
+        <input id="hostelRooms" type="number" placeholder="Total Rooms" value="10">
+        <input id="hostelPrice" type="number" placeholder="Price/Month" value="5000">
+        <button onclick="testAddHostel()">Add Hostel</button>
+        
+        <div id="hostelOutput" class="output"></div>
+    </div>
+
+    <!-- Booking Tests -->
+    <div class="test-section">
+        <h3>3. Booking Tests</h3>
+        <input id="hostelIdForBooking" placeholder="Hostel ID to book">
+        <button onclick="testBookHostel()">Book Hostel</button>
+        <button onclick="testGetMyBookings()">Get My Bookings</button>
+        <button onclick="testGetOwnerBookings()">Get Owner Bookings</button>
+        
+        <h4>Approve Booking</h4>
+        <input id="bookingIdForApproval" placeholder="Booking ID">
+        <input id="roomIdForAllocation" placeholder="Room ID">
+        <button onclick="testApproveBooking()">Approve</button>
+        
+        <div id="bookingOutput" class="output"></div>
+    </div>
+
+    <!-- Payment Tests -->
+    <div class="test-section">
+        <h3>4. Payment Tests</h3>
+        <input id="bookingIdForPayment" placeholder="Booking ID">
+        <input id="paymentAmount" type="number" placeholder="Amount" value="5000">
+        <input id="transactionId" placeholder="Transaction ID" value="TX123456">
+        <select id="paymentMethod">
+            <option value="MPESA">M-PESA</option>
+            <option value="CARD">Card</option>
+            <option value="BANK">Bank</option>
+        </select>
+        <button onclick="testMakePayment()">Make Payment (Student)</button>
+        <button onclick="testGetMyPayments()">Get My Payments</button>
+        
+        <div id="paymentOutput" class="output"></div>
+    </div>
+
+    <!-- Dashboard Tests -->
+    <div class="test-section">
+        <h3>5. Dashboard Tests</h3>
+        <button onclick="testStudentDashboard()">Get Student Dashboard</button>
+        <button onclick="testOwnerDashboard()">Get Owner Dashboard</button>
+        
+        <div id="dashboardOutput" class="output"></div>
+    </div>
+
+    <!-- Issue Tests -->
+    <div class="test-section">
+        <h3>6. Issue Tests</h3>
+        <input id="hostelIdForIssue" placeholder="Hostel ID">
+        <input id="issueTitle" placeholder="Issue Title" value="Broken Window">
+        <textarea id="issueDescription" placeholder="Description">A window is broken</textarea>
+        <select id="issuePriority">
+            <option value="LOW">Low</option>
+            <option value="MEDIUM" selected>Medium</option>
+            <option value="HIGH">High</option>
+        </select>
+        <button onclick="testReportIssue()">Report Issue</button>
+        <button onclick="testGetOwnerIssues()">Get Owner Issues</button>
+        
+        <div id="issueOutput" class="output"></div>
+    </div>
+
+</div>
+
+<script src="api-client.js"></script>
+<script>
+
+function log(outputId, message, type = 'info') {
+    const output = document.getElementById(outputId);
+    const timestamp = new Date().toLocaleTimeString();
+    const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'loading';
+    output.innerHTML += `<div class="${className}"><strong>[${timestamp}]</strong> ${typeof message === 'string' ? message : JSON.stringify(message, null, 2)}</div>`;
+    output.scrollTop = output.scrollHeight;
+}
+
+async function testRegister() {
+    const output = 'authOutput';
+    log(output, 'Attempting to register...', 'loading');
+    try {
+        const result = await register(
+            document.getElementById('regEmail').value,
+            document.getElementById('regPassword').value,
+            document.getElementById('regName').value,
+            document.getElementById('regRole').value
+        );
+        log(output, `Registration: ${result ? 'SUCCESS' : 'FAILED'}`, result ? 'success' : 'error');
+        if (result) log(output, `Token: ${authToken.substring(0, 50)}...`);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testLogin() {
+    const output = 'authOutput';
+    log(output, 'Attempting to login...', 'loading');
+    try {
+        const result = await login(
+            document.getElementById('loginEmail').value,
+            document.getElementById('loginPassword').value
+        );
+        log(output, `Login: ${result ? 'SUCCESS' : 'FAILED'}`, result ? 'success' : 'error');
+        if (result) log(output, `User: ${currentUser.email}, Role: ${currentUser.role}`);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testGetAllHostels() {
+    const output = 'hostelOutput';
+    log(output, 'Fetching all hostels...', 'loading');
+    try {
+        const result = await getAllHostels();
+        log(output, `Found ${result.hostels.length} hostels`, 'success');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testGetMyHostels() {
+    const output = 'hostelOutput';
+    log(output, 'Fetching my hostels...', 'loading');
+    try {
+        const result = await getMyHostels();
+        log(output, `Found ${result.hostels.length} hostels`, 'success');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testAddHostel() {
+    const output = 'hostelOutput';
+    log(output, 'Adding hostel...', 'loading');
+    try {
+        const result = await addHostel({
+            name: document.getElementById('hostelName').value,
+            location: document.getElementById('hostelLocation').value,
+            total_rooms: parseInt(document.getElementById('hostelRooms').value),
+            price_per_month: parseFloat(document.getElementById('hostelPrice').value)
+        });
+        log(output, result ? 'SUCCESS' : 'FAILED', result ? 'success' : 'error');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testBookHostel() {
+    const output = 'bookingOutput';
+    const hostelId = document.getElementById('hostelIdForBooking').value;
+    log(output, `Booking hostel ${hostelId}...`, 'loading');
+    try {
+        const result = await bookHostel({hostel_id: hostelId});
+        log(output, result ? 'SUCCESS' : 'FAILED', result ? 'success' : 'error');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testGetMyBookings() {
+    const output = 'bookingOutput';
+    log(output, 'Fetching my bookings...', 'loading');
+    try {
+        const result = await getMyBookings();
+        log(output, `Found ${result.bookings.length} bookings`, 'success');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testGetOwnerBookings() {
+    const output = 'bookingOutput';
+    const hostelId = document.getElementById('hostelIdForBooking').value;
+    log(output, `Fetching bookings for hostel ${hostelId}...`, 'loading');
+    try {
+        const result = await getOwnerBookings(hostelId);
+        log(output, `Found ${result.bookings.length} bookings`, 'success');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testApproveBooking() {
+    const output = 'bookingOutput';
+    const bookingId = document.getElementById('bookingIdForApproval').value;
+    const roomId = document.getElementById('roomIdForAllocation').value;
+    log(output, `Approving booking ${bookingId}...`, 'loading');
+    try {
+        const result = await approveBooking(bookingId, {room_id: roomId});
+        log(output, result ? 'SUCCESS' : 'FAILED', result ? 'success' : 'error');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testMakePayment() {
+    const output = 'paymentOutput';
+    log(output, 'Making payment...', 'loading');
+    try {
+        const result = await makePayment({
+            booking_id: document.getElementById('bookingIdForPayment').value,
+            amount: parseFloat(document.getElementById('paymentAmount').value),
+            payment_method: document.getElementById('paymentMethod').value,
+            transaction_id: document.getElementById('transactionId').value
+        });
+        log(output, result ? 'SUCCESS' : 'FAILED', result ? 'success' : 'error');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testGetMyPayments() {
+    const output = 'paymentOutput';
+    log(output, 'Fetching payments...', 'loading');
+    try {
+        const result = await getMyPayments();
+        log(output, `Found ${result.payments.length} payments`, 'success');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testStudentDashboard() {
+    const output = 'dashboardOutput';
+    log(output, 'Fetching student dashboard...', 'loading');
+    try {
+        const result = await getStudentDashboard();
+        log(output, 'SUCCESS', 'success');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testOwnerDashboard() {
+    const output = 'dashboardOutput';
+    log(output, 'Fetching owner dashboard...', 'loading');
+    try {
+        const result = await getOwnerDashboard();
+        log(output, 'SUCCESS', 'success');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testReportIssue() {
+    const output = 'issueOutput';
+    log(output, 'Reporting issue...', 'loading');
+    try {
+        const result = await reportIssue({
+            hostel_id: document.getElementById('hostelIdForIssue').value,
+            title: document.getElementById('issueTitle').value,
+            description: document.getElementById('issueDescription').value,
+            priority: document.getElementById('issuePriority').value
+        });
+        log(output, result ? 'SUCCESS' : 'FAILED', result ? 'success' : 'error');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+async function testGetOwnerIssues() {
+    const output = 'issueOutput';
+    const hostelId = document.getElementById('hostelIdForIssue').value;
+    log(output, `Fetching issues for hostel ${hostelId}...`, 'loading');
+    try {
+        const result = await getOwnerIssues(hostelId);
+        log(output, `Found issues`, 'success');
+        log(output, result);
+    } catch (e) {
+        log(output, `Error: ${e.message}`, 'error');
+    }
+}
+
+// Initialize on load
+window.addEventListener('load', () => {
+    initAuth();
+    document.getElementById('authOutput').innerHTML += `<div class="loading"><strong>Status:</strong> ${authToken ? 'Logged in as ' + currentUser.email : 'Not logged in'}</div>`;
+});
+
+</script>
+
+</body>
+</html>
