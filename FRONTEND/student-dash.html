@@ -147,31 +147,35 @@
 <div id="paymentModal" class="modal">
     <div class="modal-content">
         <span class="close-modal" onclick="closeModal('paymentModal')">&times;</span>
-        <h3>Pay Fees</h3>
+        <h3>Pay Hostel Fees</h3>
         <form onsubmit="processPayment(event)">
             <div class="form-group">
-                <label>Booking</label>
-                <select id="paymentBooking" required>
-                    <option value="">Select booking...</option>
+                <label>Select Booking</label>
+                <select id="paymentBooking" required onchange="updatePaymentAmount()">
+                    <option value="">Choose a booking...</option>
                 </select>
             </div>
             <div class="form-group">
-                <label>Amount</label>
-                <input type="number" id="paymentAmount" placeholder="Enter amount" required>
+                <label>Amount (₹)</label>
+                <input type="number" id="paymentAmount" min="0" required placeholder="Enter amount">
             </div>
             <div class="form-group">
                 <label>Payment Method</label>
-                <div class="payment-method">
-                    <div class="payment-option" onclick="selectPaymentMethod('MPESA')">📱 M-Pesa</div>
-                    <div class="payment-option" onclick="selectPaymentMethod('CARD')">💳 Card</div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
+                    <div class="payment-option" onclick="selectPaymentMethod('MPESA')">
+                        <strong>M-PESA</strong>
+                    </div>
+                    <div class="payment-option" onclick="selectPaymentMethod('BANK')">
+                        <strong>Bank Transfer</strong>
+                    </div>
                 </div>
-                <input type="hidden" id="selectedPaymentMethod">
+                <input type="hidden" id="selectedPaymentMethod" required>
             </div>
             <div class="form-group">
                 <label>Transaction ID</label>
-                <input type="text" id="transactionId" placeholder="Enter transaction ID" required>
+                <input type="text" id="transactionId" required placeholder="e.g., MPE123456789">
             </div>
-            <button type="submit" class="btn">Confirm Payment</button>
+            <button type="submit" class="btn btn-success">Submit Payment</button>
         </form>
     </div>
 </div>
@@ -290,26 +294,46 @@
         document.getElementById('paymentsList').innerHTML = html || '<p>No payments yet</p>';
     }
 
-    async function bookHostel(hostelId) {
-        const res = await apiCall('/bookings/book/', 'POST', {
-            hostel_id: hostelId,
-            semester_start: new Date().toISOString().split('T')[0],
-            semester_end: new Date(Date.now() + 180*24*60*60*1000).toISOString().split('T')[0]
-        });
-        
-        if (res.message) {
-            alert('Booking created! Waiting for owner approval.');
-            loadMyBookings();
-        } else {
-            alert(res.error || 'Booking failed');
-        }
+   async function bookHostel(hostelId) {
+    const res = await apiCall('/bookings/book/', 'POST', {
+        hostel_id: hostelId
+    });
+    
+    if (res.message || res.booking) {
+        alert('Booking created! Waiting for owner approval.');
+        loadMyBookings();
+        loadDashboard();
+    } else {
+        alert(res.error || 'Booking failed');
     }
+}
 
-    function openPaymentModal(bookingId) {
-        const select = document.getElementById('paymentBooking');
+async function openPaymentModal(bookingId) {
+    // Load all bookings first
+    const data = await apiCall('/bookings/my/');
+    const bookings = data.bookings || [];
+    
+    // Populate the select dropdown
+    const select = document.getElementById('paymentBooking');
+    select.innerHTML = bookings.map(b => `
+        <option value="${b.id}">
+            ${b.hostel.name} - ${b.status} - Booked on ${new Date(b.booking_date).toLocaleDateString()}
+        </option>
+    `).join('');
+    
+    // Pre-select the current booking if provided
+    if (bookingId) {
         select.value = bookingId;
-        document.getElementById('paymentModal').classList.add('active');
     }
+    
+    // Auto-fill suggested amount based on hostel price
+    const selectedBooking = bookings.find(b => b.id === (bookingId || select.value));
+    if (selectedBooking && selectedBooking.hostel) {
+        document.getElementById('paymentAmount').value = selectedBooking.hostel.price_per_month || '';
+    }
+    
+    document.getElementById('paymentModal').classList.add('active');
+}
 
     function closeModal(modalId) {
         document.getElementById(modalId).classList.remove('active');
@@ -343,6 +367,12 @@
             alert(res.error || 'Payment failed');
         }
     }
+
+    function updatePaymentAmount() {
+    // This will auto-update amount when booking is changed
+    openPaymentModal(document.getElementById('paymentBooking').value);
+    }
+
 
     async function submitComplaint() {
         const hostelId = document.getElementById('complaintHostel').value;

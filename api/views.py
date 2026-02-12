@@ -1045,7 +1045,6 @@ def student_dashboard(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def owner_dashboard(request):
@@ -1084,9 +1083,11 @@ def owner_dashboard(request):
             issues = list(Issue.objects(hostel=hostel, status__in=['OPEN', 'IN_PROGRESS']))
             pending_issues += len(issues)
             
-            # Revenue
-            payments = Payment.objects(booking__hostel=hostel, status='SUCCESS')
-            total_revenue += sum(p.amount for p in payments)
+            # Revenue - FIXED
+            all_bookings = list(Booking.objects(hostel=hostel))
+            for booking in all_bookings:
+                payments = list(Payment.objects(booking=booking, status='SUCCESS'))
+                total_revenue += sum(p.amount for p in payments)
 
         return Response({
             "user": user_to_dict(user),
@@ -1101,8 +1102,8 @@ def owner_dashboard(request):
             "hostels": [serialize_hostel(h) for h in hostels]
         }, status=status.HTTP_200_OK)
     except Exception as e:
+        logger.error(f"Owner dashboard error: {str(e)}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])

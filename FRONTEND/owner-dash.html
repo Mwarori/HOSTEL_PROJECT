@@ -163,7 +163,7 @@
                 <thead>
                     <tr>
                         <th>Student</th>
-                        <th>Amount (₹)</th>
+                        <th>Amount</th>
                         <th>Method</th>
                         <th>Status</th>
                         <th>Date</th>
@@ -493,23 +493,43 @@
     }
 
     async function loadHostelStudents() {
-        const hostelId = document.getElementById('studentsHostelSelect').value;
-        if (!hostelId) return;
-        
+    const hostelId = document.getElementById('studentsHostelSelect').value;
+    if (!hostelId) {
+        document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">Please select a hostel first</td></tr>';
+        return;
+    }
+    
+    try {
         const data = await apiCall(`/bookings/owner/${hostelId}/`);
-        const html = data.bookings.map(b => `
+        const bookings = data.bookings || [];
+        
+        console.log('Bookings data:', bookings); // DEBUG - check console
+        
+        if (bookings.length === 0) {
+            document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">No bookings yet for this hostel</td></tr>';
+            return;
+        }
+        
+        const html = bookings.map(b => `
             <tr>
                 <td>${b.user.email}</td>
                 <td><span class="status-badge status-${b.status.toLowerCase()}">${b.status}</span></td>
                 <td>${new Date(b.booking_date).toLocaleDateString()}</td>
                 <td>
                     ${b.status === 'PENDING' ? `<button class="btn" onclick="approveBooking('${b.id}', '${hostelId}')">Approve</button>` : ''}
-                    <button class="btn btn-danger" onclick="rejectBooking('${b.id}')">Reject</button>
+                    ${b.status === 'PENDING' ? `<button class="btn btn-danger" onclick="rejectBooking('${b.id}')">Reject</button>` : ''}
+                    ${b.status === 'FINAL_ALLOCATED' ? '<span style="color: green; font-weight: bold;">✓ Allocated</span>' : ''}
+                    ${b.status === 'CANCELLED' ? '<span style="color: red;">✗ Rejected</span>' : ''}
                 </td>
             </tr>
         `).join('');
+        
         document.getElementById('bookingsBody').innerHTML = html;
+    } catch (error) {
+        console.error('Error loading bookings:', error);
+        document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Error loading bookings</td></tr>';
     }
+}
 
     async function loadHostelPayments() {
         const hostelId = document.getElementById('paymentsHostelSelect').value;
