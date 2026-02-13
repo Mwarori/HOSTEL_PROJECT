@@ -592,7 +592,6 @@ def owner_bookings(request, hostel_id):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def approve_booking(request, booking_id):
@@ -624,13 +623,30 @@ def approve_booking(request, booking_id):
             room.assigned_to = booking.user
             room.save()
 
+        # ✅ AUTO-CANCEL all other pending bookings for this student
+        other_bookings = Booking.objects(
+            user=booking.user, 
+            status='PENDING'
+        )
+        cancelled_count = 0
+        for other_booking in other_bookings:
+            if str(other_booking.id) != str(booking_id):
+                other_booking.status = 'CANCELLED'
+                other_booking.rejection_reason = 'Auto-cancelled: Another booking was approved'
+                other_booking.save()
+                cancelled_count += 1
+        
+        logger.info(f"Approved booking {booking_id}, auto-cancelled {cancelled_count} other pending bookings for student {booking.user.email}")
+
         return Response({
             "message": "Booking approved successfully",
-            "booking": serialize_booking(booking)
+            "booking": serialize_booking(booking),
+            "auto_cancelled": cancelled_count
         }, status=status.HTTP_200_OK)
     except Exception as e:
+        logger.error(f"Approve booking error: {str(e)}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+    
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -700,6 +716,37 @@ def report_issue(request):
 
     except Exception as e:
         logger.error(f"Report issue error: {str(e)}")
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_issues(request):
+    """Get issues reported by current student"""
+    try:
+        user = get_current_user(request)
+        if not user or user.role != 'student':
+            return Response(
+                {"error": "Only students can access this"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        issues = Issue.objects(user=user).order_by('-created_at')
+        return Response({
+            "issues": [{
+                "id": str(i.id),
+                "title": i.title,
+                "description": i.description,
+                "hostel": i.hostel.name if i.hostel else "Unknown",
+                "status": i.status,
+                "priority": i.priority,
+                "created_at": i.created_at.isoformat(),
+                "resolved_at": i.resolved_at.isoformat() if i.resolved_at else None,
+                "resolution_notes": i.resolution_notes if hasattr(i, 'resolution_notes') else ""
+            } for i in issues]
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"My issues error: {str(e)}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

@@ -30,6 +30,7 @@ urlpatterns = [
 
     # Issues
     path("issues/report/", report_issue, name="report_issue"),
+    path("issues/my/", my_issues, name="my_issues"), 
     path("issues/owner/<hostel_id>/", owner_issues, name="owner_issues"),
     path("issues/<issue_id>/resolve/", resolve_issue, name="resolve_issue"),
 

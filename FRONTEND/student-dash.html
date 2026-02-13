@@ -108,39 +108,37 @@
         </div>
     </div>
 
-    <!-- COMPLAINTS -->
-    <div id="complaints" class="section">
-        <h2>Submit Complaint</h2>
-        <div class="card">
-            <h3>Report an Issue</h3>
-            <div class="form-group">
-                <label>Hostel</label>
-                <select id="complaintHostel">
-                    <option value="">Select hostel...</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Title</label>
-                <input type="text" id="complaintTitle" placeholder="e.g., Water leak in bathroom">
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea id="complaintDesc" placeholder="Describe the issue..." rows="4"></textarea>
-            </div>
-            <div class="form-group">
-                <label>Priority</label>
-                <select id="complaintPriority">
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM" selected>Medium</option>
-                    <option value="HIGH">High</option>
-                </select>
-            </div>
-            <button class="btn" onclick="submitComplaint()">Submit Complaint</button>
+  <!-- COMPLAINTS -->
+<div id="complaints" class="section">
+    <h2>Report Issue</h2>
+    <div class="card">
+        <h3>Submit a Complaint</h3>
+        <div class="form-group">
+            <label>Your Allocated Hostel</label>
+            <input type="text" id="complaintHostelName" readonly style="background: #f5f5f5; cursor: not-allowed;" placeholder="Loading...">
+            <input type="hidden" id="complaintHostel">
         </div>
-
-        <h3 style="margin-top:30px;">Your Issues</h3>
-        <div id="complaintsList" style="margin-top:15px;"></div>
+        <div class="form-group">
+            <label>Issue Title</label>
+            <input type="text" id="complaintTitle" placeholder="e.g., Broken water pipe">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="complaintDesc" rows="4" placeholder="Describe the issue in detail..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Priority</label>
+            <select id="complaintPriority">
+                <option value="LOW">Low</option>
+                <option value="MEDIUM" selected>Medium</option>
+                <option value="HIGH">High</option>
+            </select>
+        </div>
+        <button class="btn btn-success" onclick="submitComplaint()">Submit Complaint</button>
     </div>
+
+    <h3>My Complaints</h3>
+    <div id="complaintsList"></div>
 </div>
 
 <!-- PAYMENT MODAL -->
@@ -151,21 +149,21 @@
         <form onsubmit="processPayment(event)">
             <div class="form-group">
                 <label>Select Booking</label>
-                <select id="paymentBooking" required onchange="updatePaymentAmount()">
+                <select id="paymentBooking" required>
                     <option value="">Choose a booking...</option>
                 </select>
             </div>
             <div class="form-group">
-                <label>Amount (₹)</label>
-                <input type="number" id="paymentAmount" min="0" required placeholder="Enter amount">
+                <label>Amount</label>
+                <input type="number" id="paymentAmount" min="0" required placeholder="Enter amount to pay">
             </div>
             <div class="form-group">
                 <label>Payment Method</label>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px;">
-                    <div class="payment-option" onclick="selectPaymentMethod('MPESA')">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px;">
+                    <div class="payment-option" onclick="selectPaymentMethod('MPESA')" style="cursor: pointer; padding: 15px; border: 2px solid #ddd; border-radius: 8px; text-align: center; transition: all 0.3s;">
                         <strong>M-PESA</strong>
                     </div>
-                    <div class="payment-option" onclick="selectPaymentMethod('BANK')">
+                    <div class="payment-option" onclick="selectPaymentMethod('BANK')" style="cursor: pointer; padding: 15px; border: 2px solid #ddd; border-radius: 8px; text-align: center; transition: all 0.3s;">
                         <strong>Bank Transfer</strong>
                     </div>
                 </div>
@@ -268,18 +266,57 @@
         document.getElementById('hostelsList').innerHTML = html;
     }
 
-    async function loadMyBookings() {
-        const data = await apiCall('/bookings/my/');
-        const html = data.bookings.map(b => `
-            <div class="hostel-item">
-                <h4>${b.hostel.name}</h4>
-                <p>Status: <strong>${b.status}</strong></p>
-                <p>Booking Date: ${new Date(b.booking_date).toLocaleDateString()}</p>
-                <button class="btn" onclick="openPaymentModal('${b.id}')">Pay Fees</button>
-            </div>
-        `).join('');
-        document.getElementById('myBookings').innerHTML = html || '<p>No bookings yet</p>';
+   async function loadMyBookings() {
+    try {
+        const bookingsData = await apiCall('/bookings/my/');
+        const bookings = bookingsData.bookings || [];
+        
+        // Load payments to check which bookings are already paid
+        const paymentsData = await apiCall('/payments/my/');
+        const payments = paymentsData.payments || [];
+        
+        if (bookings.length === 0) {
+            document.getElementById('myBookings').innerHTML = '<p style="color:#666; text-align:center;">No bookings yet</p>';
+            return;
+        }
+        
+        const html = bookings.map(b => {
+            // Check if this booking has been paid
+            const hasPaid = payments.some(p => p.booking_id === b.id);
+            const isAllocated = b.status === 'FINAL_ALLOCATED' || b.status === 'ALLOCATED';
+            const isRejected = b.status === 'CANCELLED';
+            const isPending = b.status === 'PENDING';
+            
+            return `
+                <div class="hostel-item">
+                    <h4>${b.hostel.name}</h4>
+                    <p>Status: <strong>${b.status}</strong></p>
+                    <p>Booking Date: ${new Date(b.booking_date).toLocaleDateString()}</p>
+                    ${b.room ? `<p>Room: ${b.room.room_number} (Floor ${b.room.floor})</p>` : ''}
+                    
+                    ${isRejected ? 
+                        `<div style="background: #f8d7da; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 4px solid #dc3545;">
+                            <strong style="color: #721c24;">❌ Booking Rejected</strong>
+                            ${b.rejection_reason ? `<p style="margin: 5px 0 0; color: #721c24; font-size: 12px;">Reason: ${b.rejection_reason}</p>` : ''}
+                        </div>` 
+                    : hasPaid ? 
+                        '<div style="background: #d4edda; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 4px solid #28a745;"><strong style="color: #155724;">✓ Payment Submitted</strong></div>' 
+                    : isAllocated ? 
+                        `<button class="btn" onclick="openPaymentModal('${b.id}')">Pay Fees</button>` 
+                    : isPending ?
+                        '<p style="color: orange;">⏳ Awaiting Owner Approval</p>'
+                    : ''}
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('myBookings').innerHTML = html;
+        
+    } catch (error) {
+        console.error('Error loading bookings:', error);
+        document.getElementById('myBookings').innerHTML = '<p style="color:red; text-align:center;">Error loading bookings</p>';
     }
+}
 
     async function loadPayments() {
         const data = await apiCall('/payments/my/');
@@ -309,41 +346,78 @@
 }
 
 async function openPaymentModal(bookingId) {
-    // Load all bookings first
-    const data = await apiCall('/bookings/my/');
-    const bookings = data.bookings || [];
-    
-    // Populate the select dropdown
-    const select = document.getElementById('paymentBooking');
-    select.innerHTML = bookings.map(b => `
-        <option value="${b.id}">
-            ${b.hostel.name} - ${b.status} - Booked on ${new Date(b.booking_date).toLocaleDateString()}
-        </option>
-    `).join('');
-    
-    // Pre-select the current booking if provided
-    if (bookingId) {
-        select.value = bookingId;
+    try {
+        // Load all bookings
+        const bookingsData = await apiCall('/bookings/my/');
+        const bookings = bookingsData.bookings || [];
+        
+        if (bookings.length === 0) {
+            alert('No bookings found. Please book a hostel first.');
+            return;
+        }
+        
+        // Load existing payments to check which bookings are already paid
+        const paymentsData = await apiCall('/payments/my/');
+        const existingPayments = paymentsData.payments || [];
+        
+        console.log('Existing payments:', existingPayments);
+        
+        // Filter bookings that haven't been paid yet
+        const unpaidBookings = bookings.filter(b => {
+            const hasPaid = existingPayments.some(p => p.booking_id === b.id);
+            const isAllocated = b.status === 'FINAL_ALLOCATED' || b.status === 'ALLOCATED';
+            return !hasPaid && isAllocated;
+        });
+        
+        console.log('Unpaid bookings:', unpaidBookings);
+        
+        if (unpaidBookings.length === 0) {
+            alert('✅ All your bookings have been paid for, or you have no approved bookings yet.');
+            return;
+        }
+        
+        // Populate the select dropdown with ONLY unpaid bookings
+        const select = document.getElementById('paymentBooking');
+        select.innerHTML = unpaidBookings.map(b => `
+            <option value="${b.id}">
+                ${b.hostel.name} - ₹${b.room?.price_per_month || b.hostel.price_per_month}
+            </option>
+        `).join('');
+        
+        // Pre-select the current booking if provided and it's unpaid
+        if (bookingId && unpaidBookings.some(b => b.id === bookingId)) {
+            select.value = bookingId;
+        }
+        
+        // Auto-fill amount based on room or hostel price
+        const selectedBooking = unpaidBookings.find(b => b.id === (bookingId || select.value));
+        if (selectedBooking) {
+            const amount = selectedBooking.room?.price_per_month || selectedBooking.hostel.price_per_month || 0;
+            document.getElementById('paymentAmount').value = amount;
+        }
+        
+        // Reset payment method selection
+        document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
+        document.getElementById('selectedPaymentMethod').value = '';
+        document.getElementById('transactionId').value = '';
+        
+        document.getElementById('paymentModal').classList.add('active');
+        
+    } catch (error) {
+        console.error('Error opening payment modal:', error);
+        alert('Failed to load payment information. Please try again.');
     }
-    
-    // Auto-fill suggested amount based on hostel price
-    const selectedBooking = bookings.find(b => b.id === (bookingId || select.value));
-    if (selectedBooking && selectedBooking.hostel) {
-        document.getElementById('paymentAmount').value = selectedBooking.hostel.price_per_month || '';
-    }
-    
-    document.getElementById('paymentModal').classList.add('active');
 }
 
-    function closeModal(modalId) {
-        document.getElementById(modalId).classList.remove('active');
-    }
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
 
-    function selectPaymentMethod(method) {
-        document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
-        event.target.classList.add('selected');
-        document.getElementById('selectedPaymentMethod').value = method;
-    }
+function selectPaymentMethod(method) {
+    document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
+    event.target.closest('.payment-option').classList.add('selected');  
+    document.getElementById('selectedPaymentMethod').value = method;
+}
 
     async function processPayment(e) {
         e.preventDefault();
@@ -352,7 +426,7 @@ async function openPaymentModal(bookingId) {
         const method = document.getElementById('selectedPaymentMethod').value;
         const transactionId = document.getElementById('transactionId').value;
         
-        const res = await apiCall('/payments/record/', 'POST', {
+        const res = await apiCall('/payments/make/', 'POST', {
             booking_id: bookingId,
             amount: parseFloat(amount),
             payment_method: method,
@@ -373,57 +447,102 @@ async function openPaymentModal(bookingId) {
     openPaymentModal(document.getElementById('paymentBooking').value);
     }
 
+async function submitComplaint() {
+    const hostelId = document.getElementById('complaintHostel').value;
+    const title = document.getElementById('complaintTitle').value;
+    const desc = document.getElementById('complaintDesc').value;
+    const priority = document.getElementById('complaintPriority').value;
+    
+    if (!hostelId) {
+        alert('You must have an allocated hostel to report an issue. Please wait for your booking to be approved.');
+        return;
+    }
+    
+    if (!title || !desc) {
+        alert('Please fill in both title and description');
+        return;
+    }
+    
+    const res = await apiCall('/issues/report/', 'POST', {
+        hostel_id: hostelId,
+        title: title,
+        description: desc,
+        priority: priority
+    });
+    
+    if (res.message) {
+        alert('✅ Complaint submitted successfully!');
+        document.getElementById('complaintTitle').value = '';
+        document.getElementById('complaintDesc').value = '';
+        document.getElementById('complaintPriority').value = 'MEDIUM';
+        loadComplaints();
+    } else {
+        alert(res.error || 'Failed to submit complaint');
+    }
+}
 
-    async function submitComplaint() {
-        const hostelId = document.getElementById('complaintHostel').value;
-        const title = document.getElementById('complaintTitle').value;
-        const desc = document.getElementById('complaintDesc').value;
-        const priority = document.getElementById('complaintPriority').value;
+// Load allocated hostel when switching to complaints tab
+async function loadAllocatedHostel() {
+    try {
+        const data = await apiCall('/bookings/my/');
+        const allocatedBooking = data.bookings.find(b => 
+            b.status === 'FINAL_ALLOCATED' && b.room
+        );
         
-        if (!hostelId || !title || !desc) {
-            alert('Please fill all fields');
+        if (allocatedBooking) {
+            document.getElementById('complaintHostel').value = allocatedBooking.hostel.id;
+            document.getElementById('complaintHostelName').value = allocatedBooking.hostel.name;
+            document.getElementById('complaintHostelName').style.color = '#333';
+        } else {
+            document.getElementById('complaintHostel').value = '';
+            document.getElementById('complaintHostelName').value = 'No allocated hostel yet';
+            document.getElementById('complaintHostelName').style.color = '#999';
+        }
+    } catch (error) {
+        console.error('Error loading hostel:', error);
+        document.getElementById('complaintHostelName').value = 'Error loading hostel';
+    }
+}
+
+async function loadComplaints() {  
+    try {
+        const data = await apiCall('/issues/my/');  
+        
+        if (!data.issues || data.issues.length === 0) {
+            document.getElementById('complaintsList').innerHTML = '<p style="color:#666; text-align:center;">No complaints reported yet.</p>';
             return;
         }
         
-        const res = await apiCall('/issues/report/', 'POST', {
-            hostel_id: hostelId,
-            title, description: desc, priority
-        });
+        const html = data.issues.map(i => `
+            <div class="hostel-item">
+                <h4>${i.title} - <strong style="color: ${i.status === 'RESOLVED' ? 'green' : 'orange'}">${i.status}</strong></h4>
+                <p><strong>Hostel:</strong> ${i.hostel}</p>
+                <p>${i.description}</p>
+                <p><strong>Priority:</strong> ${i.priority} | <strong>Reported:</strong> ${new Date(i.created_at).toLocaleDateString()}</p>
+                ${i.status === 'RESOLVED' ? '<p style="color: green;">✓ Issue has been resolved</p>' : '<p style="color: orange;">⏳ Waiting for resolution</p>'}
+            </div>
+        `).join('');
         
-        if (res.message) {
-            alert('Complaint submitted!');
-            document.getElementById('complaintTitle').value = '';
-            document.getElementById('complaintDesc').value = '';
-            loadComplaints();
-        }
-    }
-
-    async function loadComplaints() {
-        const bookings = await apiCall('/bookings/my/');
-        if (bookings.bookings.length > 0) {
-            const hostelId = bookings.bookings[0].hostel.id;
-            const data = await apiCall(`/issues/owner/${hostelId}/`);
-            const html = data.issues.map(i => `
-                <div class="hostel-item">
-                    <h4>${i.title} - <strong>${i.status}</strong></h4>
-                    <p>${i.description}</p>
-                    <p>Priority: ${i.priority} | Reported: ${new Date(i.created_at).toLocaleDateString()}</p>
-                </div>
-            `).join('');
-            document.getElementById('complaintsList').innerHTML = html;
-        }
-    }
-
-    function switchTab(tabName) {
-        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        document.getElementById(tabName).classList.add('active');
+        document.getElementById('complaintsList').innerHTML = html;
         
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.classList.add('active');
-
-        if (tabName === 'complaints') loadComplaints();
+    } catch (error) {
+        console.error('Error loading complaints:', error);
+        document.getElementById('complaintsList').innerHTML = '<p style="color:red; text-align:center;">Error loading complaints. Please try again.</p>';
     }
+}
 
+function switchTab(tabName) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById(tabName).classList.add('active');
+    
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    if (tabName === 'complaints') {
+        loadAllocatedHostel();  
+        loadComplaints();       
+    }
+}
     function logout() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('user');
