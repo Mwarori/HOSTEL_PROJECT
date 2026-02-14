@@ -30,18 +30,21 @@
         .form-group { margin-bottom:15px; }
         label { display:block; margin-bottom:5px; color:#666; font-size:14px; }
         input, textarea, select { width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-family:inherit; }
-        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; }
+        .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000; }
         .modal.active { display:flex; }
-        .modal-content { background:white; padding:30px; border-radius:10px; width:90%; max-width:500px; }
+        .modal-content { background:white; padding:30px; border-radius:10px; width:90%; max-width:500px; max-height:90vh; overflow-y:auto; }
         .close-modal { float:right; cursor:pointer; font-size:20px; color:#999; }
         .payment-method { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:10px 0; }
         .payment-option { padding:10px; border:2px solid #ddd; border-radius:6px; cursor:pointer; text-align:center; transition:.2s; }
         .payment-option.selected { border-color:#1e7f74; background:#f0fffe; }
-        .rooms-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:15px; }
-        .room-card { background:white; padding:15px; border-radius:8px; text-align:center; border:1px solid #ddd; }
-        .room-card h4 { color:#1e7f74; margin-bottom:10px; }
-        .room-card .occupied { color:#e74c3c; font-size:12px; }
-        .room-card .available { color:#27ae60; font-size:12px; }
+        .room-type-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-top:10px; }
+        .room-type-option { padding:15px; border:2px solid #ddd; border-radius:8px; cursor:pointer; text-align:center; transition:.3s; }
+        .room-type-option:hover { border-color:#1e7f74; transform:translateY(-2px); }
+        .room-type-option.selected { border-color:#1e7f74; background:#e8f5f4; }
+        .room-type-option.unavailable { opacity:0.5; cursor:not-allowed; background:#f5f5f5; }
+        .room-type-option h4 { color:#1e7f74; margin-bottom:5px; font-size:16px; }
+        .room-type-option p { color:#666; font-size:12px; margin:3px 0; }
+        .room-type-option .price { color:#1e7f74; font-weight:bold; font-size:14px; margin-top:5px; }
     </style>
 </head>
 <body>
@@ -108,37 +111,60 @@
         </div>
     </div>
 
-  <!-- COMPLAINTS -->
-<div id="complaints" class="section">
-    <h2>Report Issue</h2>
-    <div class="card">
-        <h3>Submit a Complaint</h3>
-        <div class="form-group">
-            <label>Your Allocated Hostel</label>
-            <input type="text" id="complaintHostelName" readonly style="background: #f5f5f5; cursor: not-allowed;" placeholder="Loading...">
-            <input type="hidden" id="complaintHostel">
+    <!-- COMPLAINTS -->
+    <div id="complaints" class="section">
+        <h2>Report Issue</h2>
+        <div class="card">
+            <h3>Submit a Complaint</h3>
+            <div class="form-group">
+                <label>Your Allocated Hostel</label>
+                <input type="text" id="complaintHostelName" readonly style="background: #f5f5f5; cursor: not-allowed;" placeholder="Loading...">
+                <input type="hidden" id="complaintHostel">
+            </div>
+            <div class="form-group">
+                <label>Issue Title</label>
+                <input type="text" id="complaintTitle" placeholder="e.g., Broken water pipe">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="complaintDesc" rows="4" placeholder="Describe the issue in detail..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Priority</label>
+                <select id="complaintPriority">
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM" selected>Medium</option>
+                    <option value="HIGH">High</option>
+                </select>
+            </div>
+            <button class="btn btn-success" onclick="submitComplaint()">Submit Complaint</button>
         </div>
-        <div class="form-group">
-            <label>Issue Title</label>
-            <input type="text" id="complaintTitle" placeholder="e.g., Broken water pipe">
-        </div>
-        <div class="form-group">
-            <label>Description</label>
-            <textarea id="complaintDesc" rows="4" placeholder="Describe the issue in detail..."></textarea>
-        </div>
-        <div class="form-group">
-            <label>Priority</label>
-            <select id="complaintPriority">
-                <option value="LOW">Low</option>
-                <option value="MEDIUM" selected>Medium</option>
-                <option value="HIGH">High</option>
-            </select>
-        </div>
-        <button class="btn btn-success" onclick="submitComplaint()">Submit Complaint</button>
-    </div>
 
-    <h3>My Complaints</h3>
-    <div id="complaintsList"></div>
+        <h3>My Complaints</h3>
+        <div id="complaintsList"></div>
+    </div>
+</div>
+
+<!-- BOOKING MODAL -->
+<div id="bookingModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('bookingModal')">&times;</span>
+        <h3>Book Room</h3>
+        <div id="hostelInfo" style="margin-bottom:20px; padding:15px; background:#f9f9f9; border-radius:8px;">
+            <h4 id="modalHostelName" style="color:#1e7f74; margin-bottom:10px;"></h4>
+            <p id="modalHostelLocation" style="color:#666; font-size:13px;"></p>
+        </div>
+        <form onsubmit="confirmBooking(event)">
+            <div class="form-group">
+                <label>Select Room Type *</label>
+                <p style="font-size:12px; color:#666; margin-bottom:10px;">Choose your preferred room type</p>
+                <div id="roomTypeOptions" class="room-type-grid"></div>
+                <input type="hidden" id="selectedRoomType" required>
+                <input type="hidden" id="selectedHostelId">
+            </div>
+            <button type="submit" class="btn btn-success" style="width:100%; margin-top:10px;">Confirm Booking</button>
+        </form>
+    </div>
 </div>
 
 <!-- PAYMENT MODAL -->
@@ -182,6 +208,7 @@
     const API_BASE = 'http://127.0.0.1:8000/api';
     let authToken = null;
     let currentUser = null;
+    let currentHostelRooms = [];
 
     // Initialize
     window.onload = () => {
@@ -255,15 +282,109 @@
                 ${imagesHtml}
                 <h4>${h.name}</h4>
                 <p><strong>Location:</strong> ${h.location}</p>
-                <p><strong>Price:</strong> ₹${h.price_per_month}/month</p>
+                <p><strong>Starting from:</strong> ${h.price_per_month}/month</p>
                 <p><strong>Available Rooms:</strong> ${h.available_rooms}/${h.total_rooms}</p>
-                <p>${h.description}</p>
                 ${h.amenities ? `<p><strong>Amenities:</strong> ${h.amenities}</p>` : ''}
-                <button class="btn" onclick="bookHostel('${h.id}')">Book Room</button>
+                <button class="btn" onclick="openBookingModal('${h.id}')">View Room Types & Book</button>
             </div>
         `;
         }).join('');
         document.getElementById('hostelsList').innerHTML = html;
+    }
+
+    async function openBookingModal(hostelId) {
+        try {
+            // Get hostel details
+            const hostelData = await apiCall(`/hostels/${hostelId}/`);
+            const hostel = hostelData.hostel;
+            const rooms = hostelData.rooms || [];
+            
+            currentHostelRooms = rooms;
+            
+            // Set hostel info
+            document.getElementById('modalHostelName').textContent = hostel.name;
+            document.getElementById('modalHostelLocation').textContent = hostel.location;
+            document.getElementById('selectedHostelId').value = hostelId;
+            
+            // Group rooms by type and get availability
+            const roomTypes = {};
+            rooms.forEach(room => {
+                if (!roomTypes[room.room_type]) {
+                    roomTypes[room.room_type] = {
+                        type: room.room_type,
+                        price: room.price_per_month,
+                        total: 0,
+                        available: 0
+                    };
+                }
+                roomTypes[room.room_type].total++;
+                if (!room.is_occupied) {
+                    roomTypes[room.room_type].available++;
+                }
+            });
+            
+            // Create room type options
+            const html = Object.values(roomTypes).map(rt => {
+                const isAvailable = rt.available > 0;
+                return `
+                    <div class="room-type-option ${!isAvailable ? 'unavailable' : ''}" 
+                         onclick="${isAvailable ? `selectRoomType('${rt.type}', ${rt.price})` : ''}">
+                        <h4>${rt.type}</h4>
+                        <p>${rt.available}/${rt.total} available</p>
+                        <p class="price">${rt.price}/month</p>
+                        ${!isAvailable ? '<p style="color:red; font-size:11px; margin-top:5px;">Fully Booked</p>' : ''}
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('roomTypeOptions').innerHTML = html || '<p style="color:#999;">No rooms available</p>';
+            document.getElementById('selectedRoomType').value = '';
+            
+            document.getElementById('bookingModal').classList.add('active');
+            
+        } catch (error) {
+            console.error('Error opening booking modal:', error);
+            alert('Failed to load hostel details. Please try again.');
+        }
+    }
+
+    function selectRoomType(roomType, price) {
+        // Remove previous selection
+        document.querySelectorAll('.room-type-option').forEach(opt => {
+            if (!opt.classList.contains('unavailable')) {
+                opt.classList.remove('selected');
+            }
+        });
+        
+        // Add selection to clicked option
+        event.target.closest('.room-type-option').classList.add('selected');
+        document.getElementById('selectedRoomType').value = roomType;
+    }
+
+    async function confirmBooking(e) {
+        e.preventDefault();
+        
+        const hostelId = document.getElementById('selectedHostelId').value;
+        const roomType = document.getElementById('selectedRoomType').value;
+        
+        if (!roomType) {
+            alert('Please select a room type');
+            return;
+        }
+        
+        const res = await apiCall('/bookings/book/', 'POST', {
+            hostel_id: hostelId,
+            preferred_room_type: roomType
+        });
+        
+        if (res.message || res.booking) {
+            alert(`Booking created for ${roomType} room! Waiting for owner approval.`);
+            closeModal('bookingModal');
+            loadMyBookings();
+            loadDashboard();
+        } else {
+            alert(res.error || 'Booking failed');
+        }
     }
 
    async function loadMyBookings() {
@@ -291,8 +412,9 @@
                 <div class="hostel-item">
                     <h4>${b.hostel.name}</h4>
                     <p>Status: <strong>${b.status}</strong></p>
+                    <p>Preferred Room Type: <strong>${b.preferred_room_type || 'Not specified'}</strong></p>
                     <p>Booking Date: ${new Date(b.booking_date).toLocaleDateString()}</p>
-                    ${b.room ? `<p>Room: ${b.room.room_number} (Floor ${b.room.floor})</p>` : ''}
+                    ${b.room ? `<p>Assigned Room: ${b.room.room_number} (${b.room.room_type}, Floor ${b.room.floor})</p>` : ''}
                     
                     ${isRejected ? 
                         `<div style="background: #f8d7da; padding: 10px; border-radius: 6px; margin-top: 10px; border-left: 4px solid #dc3545;">
@@ -322,7 +444,7 @@
         const data = await apiCall('/payments/my/');
         const html = data.payments.map(p => `
             <div class="hostel-item">
-                <h4>${p.hostel} - ₹${p.amount}</h4>
+                <h4>${p.hostel} - ${p.amount}</h4>
                 <p>Status: <strong>${p.status}</strong></p>
                 <p>Method: ${p.method}</p>
                 <p>Date: ${new Date(p.created_at).toLocaleDateString()}</p>
@@ -331,23 +453,8 @@
         document.getElementById('paymentsList').innerHTML = html || '<p>No payments yet</p>';
     }
 
-   async function bookHostel(hostelId) {
-    const res = await apiCall('/bookings/book/', 'POST', {
-        hostel_id: hostelId
-    });
-    
-    if (res.message || res.booking) {
-        alert('Booking created! Waiting for owner approval.');
-        loadMyBookings();
-        loadDashboard();
-    } else {
-        alert(res.error || 'Booking failed');
-    }
-}
-
 async function openPaymentModal(bookingId) {
     try {
-        // Load all bookings
         const bookingsData = await apiCall('/bookings/my/');
         const bookings = bookingsData.bookings || [];
         
@@ -356,47 +463,37 @@ async function openPaymentModal(bookingId) {
             return;
         }
         
-        // Load existing payments to check which bookings are already paid
         const paymentsData = await apiCall('/payments/my/');
         const existingPayments = paymentsData.payments || [];
         
-        console.log('Existing payments:', existingPayments);
-        
-        // Filter bookings that haven't been paid yet
         const unpaidBookings = bookings.filter(b => {
             const hasPaid = existingPayments.some(p => p.booking_id === b.id);
             const isAllocated = b.status === 'FINAL_ALLOCATED' || b.status === 'ALLOCATED';
             return !hasPaid && isAllocated;
         });
         
-        console.log('Unpaid bookings:', unpaidBookings);
-        
         if (unpaidBookings.length === 0) {
             alert('✅ All your bookings have been paid for, or you have no approved bookings yet.');
             return;
         }
         
-        // Populate the select dropdown with ONLY unpaid bookings
         const select = document.getElementById('paymentBooking');
         select.innerHTML = unpaidBookings.map(b => `
             <option value="${b.id}">
-                ${b.hostel.name} - ₹${b.room?.price_per_month || b.hostel.price_per_month}
+                ${b.hostel.name} - ${b.room ? b.room.room_type : 'Pending'} - ${b.room?.price_per_month || b.hostel.price_per_month}
             </option>
         `).join('');
         
-        // Pre-select the current booking if provided and it's unpaid
         if (bookingId && unpaidBookings.some(b => b.id === bookingId)) {
             select.value = bookingId;
         }
         
-        // Auto-fill amount based on room or hostel price
         const selectedBooking = unpaidBookings.find(b => b.id === (bookingId || select.value));
         if (selectedBooking) {
             const amount = selectedBooking.room?.price_per_month || selectedBooking.hostel.price_per_month || 0;
             document.getElementById('paymentAmount').value = amount;
         }
         
-        // Reset payment method selection
         document.querySelectorAll('.payment-option').forEach(opt => opt.classList.remove('selected'));
         document.getElementById('selectedPaymentMethod').value = '';
         document.getElementById('transactionId').value = '';
@@ -437,14 +534,10 @@ function selectPaymentMethod(method) {
             alert('Payment recorded successfully!');
             closeModal('paymentModal');
             loadPayments();
+            loadMyBookings();
         } else {
             alert(res.error || 'Payment failed');
         }
-    }
-
-    function updatePaymentAmount() {
-    // This will auto-update amount when booking is changed
-    openPaymentModal(document.getElementById('paymentBooking').value);
     }
 
 async function submitComplaint() {
@@ -481,7 +574,6 @@ async function submitComplaint() {
     }
 }
 
-// Load allocated hostel when switching to complaints tab
 async function loadAllocatedHostel() {
     try {
         const data = await apiCall('/bookings/my/');
@@ -543,6 +635,7 @@ function switchTab(tabName) {
         loadComplaints();       
     }
 }
+
     function logout() {
         localStorage.removeItem('access_token');
         localStorage.removeItem('user');

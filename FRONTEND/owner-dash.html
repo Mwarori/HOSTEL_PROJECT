@@ -35,7 +35,7 @@
         input:focus, textarea:focus, select:focus { outline:none; border-color:#1e7f74; }
         .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000; }
         .modal.active { display:flex; }
-        .modal-content { background:white; padding:30px; border-radius:10px; width:90%; max-width:600px; max-height:90vh; overflow-y:auto; }
+        .modal-content { background:white; padding:30px; border-radius:10px; width:90%; max-width:700px; max-height:90vh; overflow-y:auto; }
         .close-modal { float:right; cursor:pointer; font-size:20px; color:#999; }
         .rooms-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
         .room-card { background:#f9f9f9; padding:10px; border-radius:6px; text-align:center; border:1px solid #ddd; cursor:pointer; transition:.2s; }
@@ -51,6 +51,14 @@
         .status-approved { background:#d4edda; color:#155724; }
         .status-resolved { background:#d4edda; color:#155724; }
         .status-open { background:#cfe2ff; color:#084298; }
+        .room-type-builder { background:#f9f9f9; padding:20px; border-radius:8px; margin-top:15px; border:2px dashed #1e7f74; }
+        .room-type-row { display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:10px; margin-bottom:10px; align-items:end; }
+        .room-type-row input, .room-type-row select { margin:0; }
+        .btn-small { padding:6px 10px; font-size:12px; }
+        .room-types-list { margin-top:15px; }
+        .room-type-item { background:white; padding:12px; border-radius:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border-left:3px solid #1e7f74; }
+        .room-type-info { flex:1; }
+        .room-type-info strong { color:#1e7f74; margin-right:15px; }
     </style>
 </head>
 <body>
@@ -118,7 +126,7 @@
             </select>
         </div>
         <div class="card">
-            <button class="btn btn-success" onclick="openAddRoomModal()">+ Add Room</button>
+            <button class="btn btn-success" onclick="openAddRoomModal()">+ Add Extra Room</button>
             <div id="roomsList" style="margin-top:20px;"></div>
         </div>
     </div>
@@ -172,7 +180,7 @@
                 <tbody id="paymentsBody"></tbody>
             </table>
             <div style="margin-top:15px;">
-                <h4>Total Collected: ₹<span id="totalCollected">0</span></h4>
+                <h4>Total Collected: <span id="totalCollected">0</span></h4>
             </div>
         </div>
     </div>
@@ -200,28 +208,17 @@
         <h3>Add New Hostel</h3>
         <form onsubmit="addHostel(event)" style="max-height: 70vh; overflow-y: auto;">
             <div class="form-group">
-                <label>Hostel Name</label>
+                <label>Hostel Name *</label>
                 <input type="text" id="hostelName" required>
             </div>
             <div class="form-group">
-                <label>Location</label>
+                <label>Location *</label>
                 <input type="text" id="hostelLocation" required>
             </div>
             <div class="form-group">
-                <label>Description</label>
-                <textarea id="hostelDesc" rows="3"></textarea>
-            </div>
-            <div class="form-group">
-                <label>Total Rooms</label>
-                <input type="number" id="hostelRooms" min="1" required>
-            </div>
-            <div class="form-group">
-                <label>Price per Month</label>
-                <input type="number" id="hostelPriceMonth" min="0" required>
-            </div>
-            <div class="form-group">
-                <label>Amenities</label>
-                <input type="text" id="hostelAmenities" placeholder="e.g., WiFi, Gym, Library">
+                <label>Hostel Amenities</label>
+                <input type="text" id="hostelAmenities" placeholder="e.g., WiFi, Gym, Library, 24/7 Security, Laundry, Cafeteria">
+                <small style="color:#666; font-size:11px;">List all facilities and services your hostel provides</small>
             </div>
             <div class="form-group">
                 <label>Upload Hostel Images</label>
@@ -229,44 +226,69 @@
                 <input type="file" id="hostelImages" multiple accept="image/*" onchange="previewImages(event)">
                 <div id="imagePreview" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;"></div>
             </div>
-            <button type="submit" class="btn btn-success">Create Hostel</button>
+
+            <!-- ROOM TYPES SECTION -->
+            <div class="form-group">
+                <label>Define Room Types & Quantities *</label>
+                <p style="font-size:12px; color:#666; margin-bottom:10px;">Add different room types available in your hostel (e.g., Single, Double, Triple)</p>
+                
+                <div class="room-type-builder">
+                    <div class="room-type-row">
+                        <div>
+                            <label style="margin-bottom:3px;">Room Type</label>
+                            <select id="newRoomType">
+                                <option value="SINGLE">Single Room</option>
+                                <option value="DOUBLE" selected>Double Room</option>
+                                <option value="TRIPLE">Triple Room</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="margin-bottom:3px;">Quantity</label>
+                            <input type="number" id="newRoomQty" min="1" value="1" placeholder="Qty">
+                        </div>
+                        <div>
+                            <label style="margin-bottom:3px;">Price/Month</label>
+                            <input type="number" id="newRoomPrice" min="0" placeholder="Price">
+                        </div>
+                        <div>
+                            <label style="margin-bottom:3px;">&nbsp;</label>
+                            <button type="button" class="btn btn-success btn-small" onclick="addRoomType()">+ Add</button>
+                        </div>
+                    </div>
+                    
+                    <div class="room-types-list" id="roomTypesList">
+                        <p style="color:#999; font-size:12px; text-align:center;">No room types added yet. Add at least one room type above.</p>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success" style="margin-top:20px;">Create Hostel</button>
         </form>
     </div>
 </div>
 
-<!-- ADD ROOM MODAL -->
+<!-- ADD EXTRA ROOM MODAL -->
 <div id="addRoomModal" class="modal">
     <div class="modal-content">
         <span class="close-modal" onclick="closeModal('addRoomModal')">&times;</span>
-        <h3>Add Room</h3>
-        <form onsubmit="addRoom(event)">
+        <h3>Add Extra Room</h3>
+        <p style="color:#666; font-size:13px; margin-bottom:20px;">Use this to add additional rooms to your existing hostel.</p>
+        <form onsubmit="addExtraRoom(event)">
             <div class="form-group">
-                <label>Room Number</label>
-                <input type="text" id="roomNumber" required>
+                <label>Room Number *</label>
+                <input type="text" id="extraRoomNumber" required placeholder="e.g., 101, A-12">
             </div>
             <div class="form-group">
-                <label>Room Type</label>
-                <select id="roomType">
-                    <option>SINGLE</option>
-                    <option selected>DOUBLE</option>
-                    <option>TRIPLE</option>
+                <label>Room Type *</label>
+                <select id="extraRoomType" required>
+                    <option value="SINGLE">Single Room</option>
+                    <option value="DOUBLE" selected>Double Room</option>
+                    <option value="TRIPLE">Triple Room</option>
                 </select>
             </div>
             <div class="form-group">
-                <label>Capacity</label>
-                <input type="number" id="roomCapacity" min="1" value="2">
-            </div>
-            <div class="form-group">
-                <label>Floor</label>
-                <input type="number" id="roomFloor" min="1" value="1">
-            </div>
-            <div class="form-group">
-                <label>Price per Month</label>
-                <input type="number" id="roomPrice" min="0" required>
-            </div>
-            <div class="form-group">
-                <label>Amenities</label>
-                <input type="text" id="roomAmenities" placeholder="e.g., AC, Attached Bathroom">
+                <label>Price per Month *</label>
+                <input type="number" id="extraRoomPrice" min="0" required placeholder="e.g., 5000">
             </div>
             <button type="submit" class="btn btn-success">Add Room</button>
         </form>
@@ -294,6 +316,7 @@
     const API_BASE = 'http://127.0.0.1:8000/api';
     let authToken = null;
     let currentUser = null;
+    let roomTypes = [];
 
     window.onload = () => {
         const token = localStorage.getItem('access_token');
@@ -358,9 +381,8 @@
                 ${imagesHtml}
                 <h3>${h.name}</h3>
                 <p><strong>Location:</strong> ${h.location}</p>
-                <p><strong>Price:</strong> ₹${h.price_per_month}/month</p>
+                <p><strong>Starting Price:</strong> ${h.price_per_month}/month</p>
                 <p><strong>Total Rooms:</strong> ${h.total_rooms} | <strong>Available:</strong> ${h.available_rooms}</p>
-                ${h.description ? `<p><strong>Description:</strong> ${h.description}</p>` : ''}
                 ${h.amenities ? `<p><strong>Amenities:</strong> ${h.amenities}</p>` : ''}
             </div>
         `;
@@ -383,7 +405,56 @@
     }
 
     function openAddHostelModal() {
+        roomTypes = [];
+        document.getElementById('roomTypesList').innerHTML = '<p style="color:#999; font-size:12px; text-align:center;">No room types added yet. Add at least one room type above.</p>';
         document.getElementById('addHostelModal').classList.add('active');
+    }
+
+    function addRoomType() {
+        const type = document.getElementById('newRoomType').value;
+        const qty = parseInt(document.getElementById('newRoomQty').value);
+        const price = parseFloat(document.getElementById('newRoomPrice').value);
+        
+        if (!qty || qty < 1) {
+            alert('Please enter a valid quantity');
+            return;
+        }
+        
+        if (!price || price < 0) {
+            alert('Please enter a valid price');
+            return;
+        }
+        
+        roomTypes.push({ type, quantity: qty, price });
+        updateRoomTypesList();
+        
+        document.getElementById('newRoomQty').value = 1;
+        document.getElementById('newRoomPrice').value = '';
+    }
+
+    function updateRoomTypesList() {
+        if (roomTypes.length === 0) {
+            document.getElementById('roomTypesList').innerHTML = '<p style="color:#999; font-size:12px; text-align:center;">No room types added yet. Add at least one room type above.</p>';
+            return;
+        }
+        
+        const html = roomTypes.map((rt, index) => `
+            <div class="room-type-item">
+                <div class="room-type-info">
+                    <strong>${rt.type}</strong>
+                    <span style="color:#666;">Quantity: ${rt.quantity} rooms</span>
+                    <span style="color:#666; margin-left:15px;">Price: ${rt.price}/month</span>
+                </div>
+                <button type="button" class="btn btn-danger btn-small" onclick="removeRoomType(${index})">Remove</button>
+            </div>
+        `).join('');
+        
+        document.getElementById('roomTypesList').innerHTML = html;
+    }
+
+    function removeRoomType(index) {
+        roomTypes.splice(index, 1);
+        updateRoomTypesList();
     }
 
     function previewImages(event) {
@@ -409,10 +480,15 @@
 
     async function addHostel(e) {
         e.preventDefault();
+        
+        if (roomTypes.length === 0) {
+            alert('Please add at least one room type');
+            return;
+        }
+        
         const files = document.getElementById('hostelImages').files;
         const images = [];
         
-        // Convert images to base64
         if (files.length > 0) {
             for (let file of files) {
                 const reader = new FileReader();
@@ -429,17 +505,17 @@
         const res = await apiCall('/hostels/add/', 'POST', {
             name: document.getElementById('hostelName').value,
             location: document.getElementById('hostelLocation').value,
-            description: document.getElementById('hostelDesc').value,
-            total_rooms: parseInt(document.getElementById('hostelRooms').value),
-            price_per_month: parseFloat(document.getElementById('hostelPriceMonth').value),
             amenities: document.getElementById('hostelAmenities').value,
-            images: images
+            images: images,
+            room_types: roomTypes
         });
         
         if (res.message) {
-            alert('Hostel added!');
+            alert('Hostel and rooms added successfully!');
             document.getElementById('hostelImages').value = '';
             document.getElementById('imagePreview').innerHTML = '';
+            document.querySelector('#addHostelModal form').reset();
+            roomTypes = [];
             closeModal('addHostelModal');
             loadDashboard();
         } else {
@@ -456,23 +532,32 @@
         document.getElementById('addRoomModal').classList.add('active');
     }
 
-    async function addRoom(e) {
+    async function addExtraRoom(e) {
         e.preventDefault();
         const hostelId = document.getElementById('roomsHostelSelect').value;
+        const type = document.getElementById('extraRoomType').value;
+        
+        // Auto-set capacity based on room type
+        let capacity = 1;
+        if (type === 'DOUBLE') capacity = 2;
+        else if (type === 'TRIPLE') capacity = 3;
+        
         const res = await apiCall('/rooms/add/', 'POST', {
             hostel_id: hostelId,
-            room_number: document.getElementById('roomNumber').value,
-            room_type: document.getElementById('roomType').value,
-            capacity: parseInt(document.getElementById('roomCapacity').value),
-            floor: parseInt(document.getElementById('roomFloor').value),
-            price_per_month: parseFloat(document.getElementById('roomPrice').value),
-            amenities: document.getElementById('roomAmenities').value
+            room_number: document.getElementById('extraRoomNumber').value,
+            room_type: type,
+            capacity: capacity,
+            floor: 1,
+            price_per_month: parseFloat(document.getElementById('extraRoomPrice').value)
         });
         
         if (res.message) {
-            alert('Room added!');
+            alert('Room added successfully!');
+            document.querySelector('#addRoomModal form').reset();
             closeModal('addRoomModal');
             loadHostelRooms();
+        } else {
+            alert(res.error || 'Failed to add room');
         }
     }
 
@@ -484,52 +569,52 @@
         const html = data.rooms.map(r => `
             <div class="hostel-item">
                 <h4>Room ${r.room_number} (${r.room_type})</h4>
-                <p>Capacity: ${r.capacity} | Price: ₹${r.price_per_month}</p>
-                <p>Status: ${r.is_occupied ? 'Occupied' : 'Available'}</p>
-                <p>${r.amenities}</p>
+                <p>Price: ${r.price_per_month}/month</p>
+                <p>Status: ${r.is_occupied ? '🔴 Occupied' : '🟢 Available'}</p>
             </div>
         `).join('');
-        document.getElementById('roomsList').innerHTML = html;
+        document.getElementById('roomsList').innerHTML = html || '<p style="color:#999;">No rooms found for this hostel.</p>';
     }
 
     async function loadHostelStudents() {
-    const hostelId = document.getElementById('studentsHostelSelect').value;
-    if (!hostelId) {
-        document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">Please select a hostel first</td></tr>';
-        return;
-    }
-    
-    try {
-        const data = await apiCall(`/bookings/owner/${hostelId}/`);
-        const bookings = data.bookings || [];
-        
-        console.log('Bookings data:', bookings); // DEBUG - check console
-        
-        if (bookings.length === 0) {
-            document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">No bookings yet for this hostel</td></tr>';
+        const hostelId = document.getElementById('studentsHostelSelect').value;
+        if (!hostelId) {
+            document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">Please select a hostel first</td></tr>';
             return;
         }
         
-        const html = bookings.map(b => `
-            <tr>
-                <td>${b.user.email}</td>
-                <td><span class="status-badge status-${b.status.toLowerCase()}">${b.status}</span></td>
-                <td>${new Date(b.booking_date).toLocaleDateString()}</td>
-                <td>
-                    ${b.status === 'PENDING' ? `<button class="btn" onclick="approveBooking('${b.id}', '${hostelId}')">Approve</button>` : ''}
-                    ${b.status === 'PENDING' ? `<button class="btn btn-danger" onclick="rejectBooking('${b.id}')">Reject</button>` : ''}
-                    ${b.status === 'FINAL_ALLOCATED' ? '<span style="color: green; font-weight: bold;">✓ Allocated</span>' : ''}
-                    ${b.status === 'CANCELLED' ? '<span style="color: red;">✗ Rejected</span>' : ''}
-                </td>
-            </tr>
-        `).join('');
-        
-        document.getElementById('bookingsBody').innerHTML = html;
-    } catch (error) {
-        console.error('Error loading bookings:', error);
-        document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Error loading bookings</td></tr>';
+        try {
+            const data = await apiCall(`/bookings/owner/${hostelId}/`);
+            const bookings = data.bookings || [];
+            
+            if (bookings.length === 0) {
+                document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:#999;">No bookings yet for this hostel</td></tr>';
+                return;
+            }
+            
+            const html = bookings.map(b => `
+                <tr>
+                    <td>
+                        ${b.user.email}
+                        ${b.preferred_room_type ? `<br><small style="color:#666;">Prefers: <strong style="color:#1e7f74;">${b.preferred_room_type}</strong></small>` : ''}
+                    </td>
+                    <td><span class="status-badge status-${b.status.toLowerCase()}">${b.status}</span></td>
+                    <td>${new Date(b.booking_date).toLocaleDateString()}</td>
+                    <td>
+                        ${b.status === 'PENDING' ? `<button class="btn" onclick="approveBooking('${b.id}', '${hostelId}', '${b.preferred_room_type || ''}')">Approve</button>` : ''}
+                        ${b.status === 'PENDING' ? `<button class="btn btn-danger" onclick="rejectBooking('${b.id}')">Reject</button>` : ''}
+                        ${b.status === 'FINAL_ALLOCATED' ? '<span style="color: green; font-weight: bold;">✓ Allocated</span>' : ''}
+                        ${b.status === 'CANCELLED' ? '<span style="color: red;">✗ Rejected</span>' : ''}
+                    </td>
+                </tr>
+            `).join('');
+            
+            document.getElementById('bookingsBody').innerHTML = html;
+        } catch (error) {
+            console.error('Error loading bookings:', error);
+            document.getElementById('bookingsBody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">Error loading bookings</td></tr>';
+        }
     }
-}
 
     async function loadHostelPayments() {
         const hostelId = document.getElementById('paymentsHostelSelect').value;
@@ -539,7 +624,7 @@
         const html = data.payments.map(p => `
             <tr>
                 <td>${p.student}</td>
-                <td>₹${p.amount}</td>
+                <td>${p.amount}</td>
                 <td>${p.method}</td>
                 <td><span class="status-badge status-${p.status.toLowerCase()}">${p.status}</span></td>
                 <td>${new Date(p.created_at).toLocaleDateString()}</td>
@@ -565,16 +650,29 @@
         document.getElementById('issuesList').innerHTML = html;
     }
 
-    async function approveBooking(bookingId, hostelId) {
+    async function approveBooking(bookingId, hostelId, preferredType) {
         document.getElementById('selectedBookingId').value = bookingId;
         const data = await apiCall(`/rooms/hostel/${hostelId}/`);
-        const html = data.rooms.filter(r => !r.is_occupied).map(r => `
+        
+        let availableRooms = data.rooms.filter(r => !r.is_occupied);
+        if (preferredType) {
+            availableRooms = availableRooms.filter(r => r.room_type === preferredType);
+        }
+        
+        if (availableRooms.length === 0 && preferredType) {
+            alert(`No available ${preferredType} rooms. Please reject this booking or wait for availability.`);
+            return;
+        }
+        
+        const html = availableRooms.map(r => `
             <div class="room-card" onclick="selectRoom('${r.id}')">
-                <h5>${r.room_number}</h5>
-                <div class="status">₹${r.price_per_month}</div>
+                <h5>Room ${r.room_number}</h5>
+                <div class="status">${r.room_type}</div>
+                <div class="status">${r.price_per_month}</div>
+                ${r.room_type === preferredType ? '<div style="color:green; font-size:10px; margin-top:5px;">✓ Matches preference</div>' : ''}
             </div>
         `).join('');
-        document.getElementById('availableRooms').innerHTML = html;
+        document.getElementById('availableRooms').innerHTML = html || '<p style="color:#999;">No available rooms</p>';
         document.getElementById('assignRoomModal').classList.add('active');
     }
 
@@ -596,14 +694,14 @@
         
         const res = await apiCall(`/bookings/${bookingId}/approve/`, 'POST', { room_id: roomId });
         if (res.message) {
-            alert('Room assigned!');
+            alert('Room assigned successfully!');
             closeModal('assignRoomModal');
             loadHostelStudents();
         }
     }
 
     async function rejectBooking(bookingId) {
-        if (confirm('Reject this booking?')) {
+        if (confirm('Are you sure you want to reject this booking?')) {
             await apiCall(`/bookings/${bookingId}/reject/`, 'POST', { reason: 'Rejected by owner' });
             alert('Booking rejected');
             loadHostelStudents();
@@ -611,10 +709,9 @@
     }
 
     async function resolveIssue(issueId) {
-        if (confirm('Mark as resolved?')) {
+        if (confirm('Mark this issue as resolved?')) {
             await apiCall(`/issues/${issueId}/resolve/`, 'POST', { notes: 'Resolved' });
             alert('Issue marked as resolved');
-            const hostelId = document.getElementById('issuesHostelSelect').value;
             loadHostelIssues();
         }
     }

@@ -84,7 +84,7 @@ class Hostel(Document):
     name = StringField(required=True, max_length=150)
     location = StringField(required=True, max_length=200)
     description = StringField()
-    total_rooms = IntField(required=True, min_value=1)
+    total_rooms = IntField(required=True, min_value=0)  # ✅ Changed from min_value=1 to min_value=0
     available_rooms = IntField(required=True, min_value=0)
     price_per_month = FloatField(required=True, min_value=0)
     price_per_semester = FloatField(min_value=0)
@@ -163,6 +163,7 @@ class Booking(Document):
     user = ReferenceField(User, required=True)
     hostel = ReferenceField(Hostel, required=True)
     room = ReferenceField(Room, allow_null=True)
+    preferred_room_type = StringField(choices=ROOM_TYPE_CHOICES)  # ✅ NEW - Student's preferred room type
     status = StringField(choices=STATUS_CHOICES, default='PENDING')
     room_number = StringField(max_length=20)
     booking_date = DateTimeField(default=datetime.utcnow)
@@ -185,6 +186,7 @@ class Booking(Document):
             'status',
             'is_active',
             'booking_date',
+            'preferred_room_type',  # ✅ NEW - Index for filtering by room type preference
             ('user', 'hostel'),
         ]
     }
@@ -290,4 +292,3 @@ class Payment(Document):
     def save(self, *args, **kwargs):
         self.updated_at = datetime.utcnow()
         return super().save(*args, **kwargs)
-

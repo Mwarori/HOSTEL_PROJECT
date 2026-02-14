@@ -89,11 +89,13 @@ def serialize_booking(booking):
         "room": {
             "id": str(booking.room.id),
             "room_number": booking.room.room_number,
+            "room_type": booking.room.room_type,  # ✅ Include room_type
             "floor": booking.room.floor,
             "amenities": booking.room.amenities,
             "price": booking.room.price_per_month
         } if booking.room else None,
         "room_number": booking.room.room_number if booking.room else booking.room_number,
+        "preferred_room_type": booking.preferred_room_type if hasattr(booking, 'preferred_room_type') else None,  # ✅ NEW
         "status": booking.status,
         "booking_date": booking.booking_date.isoformat() if booking.booking_date else None,
         "allocation_date": booking.allocation_date.isoformat() if booking.allocation_date else None,
@@ -228,7 +230,7 @@ def user_profile(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def add_hostel(request):
-    """Add a new hostel (Owner only) with support for multiple images"""
+    """Add a new hostel (Owner only) with support for multiple images and room types"""
     try:
         user = get_current_user(request)
         if not user or user.role != 'owner':
@@ -238,21 +240,45 @@ def add_hostel(request):
             )
 
         data = request.data
-        required = ["name", "location", "total_rooms", "price_per_month"]
-        if not all(field in data for field in required):
+        
+        # Basic validation
+        if not data.get("name") or not data.get("location"):
             return Response(
-                {"error": f"Required fields: {', '.join(required)}"},
+                {"error": "Name and location are required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Validate room_types
+        room_types = data.get("room_types", [])
+        if not room_types or len(room_types) == 0:
+            return Response(
+                {"error": "At least one room type is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Calculate totals first
+        total_rooms_count = sum(int(rt.get("quantity", 0)) for rt in room_types)
+        min_price = min(float(rt.get("price", 0)) for rt in room_types) if room_types else 0
+
+        # Validate we have at least 1 room
+        if total_rooms_count < 1:
+            return Response(
+                {"error": "Total rooms must be at least 1"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if min_price == float('inf'):
+            min_price = 0
+
+        # Create hostel with calculated values
         hostel = Hostel(
             owner=user,
             name=data.get("name").strip(),
             location=data.get("location").strip(),
             description=data.get("description", ""),
-            total_rooms=int(data.get("total_rooms")),
-            available_rooms=int(data.get("total_rooms")),
-            price_per_month=float(data.get("price_per_month")),
+            total_rooms=total_rooms_count,  # ✅ Already calculated
+            available_rooms=total_rooms_count,  # ✅ Already calculated
+            price_per_month=min_price,  # ✅ Already calculated
             price_per_semester=float(data.get("price_per_semester", 0)),
             amenities=data.get("amenities", ""),
         )
@@ -260,17 +286,20 @@ def add_hostel(request):
         # Handle image uploads
         import base64
         import os
-        from datetime import datetime
+        from datetime import datetime as dt
         
         images_data = data.get("images", [])
+        
+        # Handle if images is a string
         if isinstance(images_data, str):
             try:
-                images_data = eval(images_data) if images_data.startswith('[') else []
+                import json
+                images_data = json.loads(images_data)
             except:
                 images_data = []
         
         for idx, img_data in enumerate(images_data):
-            if not img_data or not img_data.startswith('data:'):
+            if not img_data or not isinstance(img_data, str) or not img_data.startswith('data:'):
                 continue
                 
             try:
@@ -280,9 +309,17 @@ def add_hostel(request):
                 
                 # Determine file extension
                 ext = 'png' if 'png' in header else 'jpg'
-                filename = f"hostel_{int(datetime.now().timestamp())}_{idx}.{ext}"
+                filename = f"hostel_{int(dt.now().timestamp())}_{idx}.{ext}"
                 filepath = os.path.join('hostel_images', filename)
-                full_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'media', filepath)
+                
+                # Get the media directory path
+                from django.conf import settings
+                if hasattr(settings, 'MEDIA_ROOT'):
+                    full_path = os.path.join(settings.MEDIA_ROOT, filepath)
+                else:
+                    # Fallback if MEDIA_ROOT not set
+                    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    full_path = os.path.join(base_dir, 'media', filepath)
                 
                 # Ensure directory exists
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
@@ -292,7 +329,6 @@ def add_hostel(request):
                     f.write(image_bytes)
                 
                 # Add to hostel images
-                from api.models import HostelImageEmbedded
                 image_obj = HostelImageEmbedded(
                     image_url=f"/media/{filepath}",
                     caption=f"Hostel Image {idx + 1}",
@@ -301,23 +337,76 @@ def add_hostel(request):
                 )
                 hostel.images.append(image_obj)
             except Exception as img_err:
-                logger.error(f"Error saving image: {str(img_err)}")
+                logger.error(f"Error saving image {idx}: {str(img_err)}")
                 continue
         
         # Set primary image from first image if available
         if hostel.images:
             hostel.image = hostel.images[0].image_url
         
+        # Save hostel
         hostel.save()
+        logger.info(f"Hostel created: {hostel.id}")
+
+        # ✅ CREATE ROOMS BASED ON ROOM TYPES
+        rooms_created = 0
+        
+        for idx, room_type_data in enumerate(room_types):
+            try:
+                room_type = room_type_data.get("type", "DOUBLE").upper()
+                quantity = int(room_type_data.get("quantity", 1))
+                price = float(room_type_data.get("price", 0))
+                
+                # Validate room type
+                if room_type not in ['SINGLE', 'DOUBLE', 'TRIPLE']:
+                    logger.warning(f"Invalid room type: {room_type}, defaulting to DOUBLE")
+                    room_type = "DOUBLE"
+                
+                # Create rooms based on quantity
+                for i in range(quantity):
+                    # Generate room number: e.g., S01-01, D02-01, T03-01
+                    room_number = f"{room_type[0]}{idx+1:02d}-{i+1:02d}"
+                    
+                    # Set capacity based on room type
+                    if room_type == "SINGLE":
+                        capacity = 1
+                    elif room_type == "DOUBLE":
+                        capacity = 2
+                    else:  # TRIPLE
+                        capacity = 3
+                    
+                    room = Room(
+                        hostel=hostel,
+                        room_number=room_number,
+                        room_type=room_type,
+                        capacity=capacity,
+                        price_per_month=price,
+                        floor=1,
+                        is_occupied=False
+                    )
+                    room.save()
+                    rooms_created += 1
+                    
+            except Exception as room_err:
+                logger.error(f"Error creating room from type {idx}: {str(room_err)}")
+                continue
+        
+        logger.info(f"Created {rooms_created} rooms for hostel {hostel.id}")
 
         return Response({
-            "message": "Hostel added successfully",
-            "hostel": serialize_hostel(hostel)
+            "message": "Hostel and rooms added successfully",
+            "hostel": serialize_hostel(hostel),
+            "rooms_created": rooms_created
         }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
         logger.error(f"Add hostel error: {str(e)}")
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return Response({
+            "error": str(e),
+            "details": "Check server logs for more information"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["GET"])
@@ -499,7 +588,7 @@ def update_room(request, room_id):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def book_hostel(request):
-    """Book a hostel (Student only)"""
+    """Book a hostel (Student only) with preferred room type"""
     try:
         from datetime import datetime as dt
         
@@ -522,19 +611,36 @@ def book_hostel(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Get preferred room type
+        preferred_room_type = request.data.get("preferred_room_type", "DOUBLE")
+        
+        # Validate room type exists and is available
+        available_room = Room.objects(
+            hostel=hostel, 
+            room_type=preferred_room_type,
+            is_occupied=False
+        ).first()
+        
+        if not available_room:
+            return Response(
+                {"error": f"No {preferred_room_type} rooms available in this hostel"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Parse dates - handle both string and datetime formats
         semester_start = request.data.get("semester_start")
         semester_end = request.data.get("semester_end")
         
-        if isinstance(semester_start, str):
+        if semester_start and isinstance(semester_start, str):
             semester_start = dt.fromisoformat(semester_start.replace('Z', '+00:00'))
-        if isinstance(semester_end, str):
+        if semester_end and isinstance(semester_end, str):
             semester_end = dt.fromisoformat(semester_end.replace('Z', '+00:00'))
 
         booking = Booking(
             user=user,
             hostel=hostel,
             status='PENDING',
+            preferred_room_type=preferred_room_type,  # ✅ NEW - Store preferred room type
             semester_start=semester_start,
             semester_end=semester_end,
             notes=request.data.get("notes", "")
@@ -542,12 +648,14 @@ def book_hostel(request):
         booking.save()
 
         return Response({
-            "message": "Booking created successfully",
+            "message": f"Booking created successfully for {preferred_room_type} room",
             "booking": serialize_booking(booking)
         }, status=status.HTTP_201_CREATED)
 
     except Exception as e:
         logger.error(f"Book hostel error: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -592,10 +700,11 @@ def owner_bookings(request, hostel_id):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def approve_booking(request, booking_id):
-    """Approve a booking and assign room (Owner only)"""
+    """Approve a booking and assign room (Owner only) - respects preferred room type"""
     try:
         booking = Booking.objects(id=ObjectId(booking_id)).first()
         if not booking:
@@ -610,6 +719,14 @@ def approve_booking(request, booking_id):
 
         room_id = request.data.get("room_id")
         room = Room.objects(id=ObjectId(room_id), hostel=booking.hostel).first() if room_id else None
+
+        # ✅ VALIDATE: Room type matches student's preference
+        if room and hasattr(booking, 'preferred_room_type') and booking.preferred_room_type:
+            if room.room_type != booking.preferred_room_type:
+                return Response(
+                    {"error": f"Selected room type ({room.room_type}) doesn't match student's preference ({booking.preferred_room_type})"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
         booking.status = 'FINAL_ALLOCATED'
         booking.room = room
@@ -645,6 +762,8 @@ def approve_booking(request, booking_id):
         }, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Approve booking error: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
@@ -1186,3 +1305,4 @@ def hostel_stats(request, hostel_id):
         return Response(stats, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
